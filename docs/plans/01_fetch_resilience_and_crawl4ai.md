@@ -73,6 +73,26 @@ blocker for running the eval harness.
 - Crawl4AI's anti-bot is not magic — Cloudflare-protected paywalled news sites (Reuters, WSJ)
   may still block regardless. The real win is skipping known-permanent 403s, not bypassing them.
 
+**Existing retry libraries (don't hand-roll):**
+- `retryhttp` (14 stars, actively maintained) — tenacity-based, retries 429/500/502/503/504,
+  supports httpx natively. `pip install retryhttp[httpx]`. Does NOT retry 403 (correct behavior).
+- `httpx-retries` — transport-layer retry for httpx. Successor to deprecated `httpx-retry`.
+  `RetryTransport` wraps httpx.Client. Configurable status codes and backoff.
+- Either of these could replace our hand-rolled retry in loop.py's `_retry_api_call`.
+
+**Crawl4AI deployment concerns:**
+- Playwright is NOT optional — `crawl4ai-setup` installs browser binaries (~150MB Chromium)
+- 100-200MB RAM per browser instance
+- Playwright has known memory leaks in long-running sessions (Microsoft issue #6319, #15400, #29163)
+  — must recycle browser contexts periodically (e.g., every 10 pages)
+- MemoryAdaptiveDispatcher auto-adjusts concurrency but requires monitoring
+- No lightweight httpx-only mode exists
+
+**Revised Phase 1 recommendation:**
+Use `retryhttp` or `httpx-retries` instead of hand-rolling HTTP error classification.
+Both libraries already classify 403 as non-retryable and handle 429 with backoff.
+This reduces Phase 1 from ~50 lines of custom code to ~5 lines of configuration.
+
 Sources:
 - [Crawl4AI vs Firecrawl: Detailed Comparison 2026 (Bright Data)](https://brightdata.com/blog/ai/crawl4ai-vs-firecrawl)
 - [Crawl4AI Anti-Bot Documentation](https://docs.crawl4ai.com/advanced/anti-bot-and-fallback/)
@@ -80,6 +100,12 @@ Sources:
 - [AI Web Scraping 2026 (Morph)](https://www.morphllm.com/ai-web-scraping)
 - [Cloudflare AI Labyrinth](https://blog.cloudflare.com/ai-labyrinth/)
 - [Best Python HTTP Clients 2026 (Bright Data)](https://brightdata.com/blog/web-data/best-python-http-clients)
+- [retryhttp GitHub](https://github.com/austind/retryhttp)
+- [httpx-retries GitHub](https://github.com/will-ockmore/httpx-retries)
+- [Playwright Memory Issues (Microsoft #6319)](https://github.com/microsoft/playwright/issues/6319)
+- [AI Agent Retry Patterns (Fast.io)](https://fast.io/resources/ai-agent-retry-patterns/)
+- [Crawl4AI Self-Hosting Guide](https://docs.crawl4ai.com/core/self-hosting/)
+- [Crawl4AI Installation](https://docs.crawl4ai.com/core/installation/)
 
 ---
 
