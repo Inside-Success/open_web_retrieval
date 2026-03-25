@@ -1,111 +1,43 @@
-# Plan #01: Fetch Resilience and Crawl4AI Integration
+# Plan #01: Fetch Error Classification
 
 **Status:** Planned
 **Type:** implementation
 **Priority:** High
 **Blocked By:** None
-**Blocks:** research_v3 eval loop performance (currently times out on paywalled sites)
+**Blocks:** research_v3 eval loop (times out retrying permanent 403s)
 
 ---
 
 ## Gap
 
-**Current:** `SourceFetcher.fetch()` treats all HTTP errors identically — raises `FetchError`
-on any 4xx/5xx with no classification. Consumers like research_v3's loop retry 3x on every
-failure, wasting ~30s per paywalled site (Reuters, TheHill, WSJ, etc.). The loop timed out
-at 20 minutes on a single question because of this.
+**Current:** `SourceFetcher.fetch()` treats all HTTP errors identically — raises
+`FetchError` with no classification. The consumer (research_v3 `loop.py`) retries
+every exception 3x with backoff. Paywalled sites (Reuters, TheHill, WSJ) always
+return 403, wasting ~30s per URL. The loop timed out at 20 minutes on one question.
 
-**Target:** Two-tier fetch with HTTP error classification:
-1. **Fast path** (httpx + trafilatura) — for cooperative sites. Classify errors as
-   retryable (429/5xx) vs permanent (401/403/404). Return immediately on permanent errors.
-2. **Escalation path** (Crawl4AI) — for sites that return 403 due to anti-bot protection.
-   Crawl4AI has 3-tier anti-bot detection (HTTP status, short/empty bodies, structural
-   HTML markers for Cloudflare/DataDome/PerimeterX).
+Additionally, `_extract_with_trafilatura()` silently swallows exceptions (line 58-59),
+violating the repo's fail-loud rule.
 
-**Why:** The loop infrastructure works — it found real Palantir contract data across 3 rounds.
-But wall-clock time is dominated by futile retries on paywalled sites. This is the #1
-blocker for running the eval harness.
+**Target:** `FetchError` carries a `retryable` field. Consumers check it. Permanent
+failures (403, 401, 404) fail fast. The consumer update is in the same slice — the
+library change alone does not unblock research_v3.
+
+**Why:** This is the #1 blocker for ROADMAP Phase 2 (research_v3 eval harness).
 
 ---
 
 ## References Reviewed
 
 - `src/open_web_retrieval/fetch_extract.py:107-125` — current `SourceFetcher.fetch()`
-- `src/open_web_retrieval/exceptions.py` — current `FetchError` (no retryable field)
-- `src/open_web_retrieval/models.py` — `FetchRequest`, `FetchedResource` contracts
-- Crawl4AI docs: anti-bot detection (3-tier), AsyncWebCrawler API, CrawlResult schema
-- Crawl4AI GitHub: 62.5k stars, Apache-2.0, fully self-hostable
-- research_v3 loop.py F1 run log (2026-03-24): 403 on reuters.com, thehill.com,
-  visualcapitalist.com — each wasted 3 retries x backoff
+- `src/open_web_retrieval/fetch_extract.py:48-59` — silent trafilatura swallow
+- `src/open_web_retrieval/exceptions.py` — `FetchError` (no retryable field)
+- `src/open_web_retrieval/client.py:30-65` — `OpenWebRetrievalClient` hardcodes `SourceFetcher`
+- `src/open_web_retrieval/models.py` — `FetchRequest`, `FetchedResource`
+- `tests/test_fetch_extract.py` — existing fetch tests (this is where new tests go)
+- `research_v3/loop.py:91-120` — `_retry_api_call` retries all exceptions generically
+- `research_v3/loop.py:48-65` — `LoopRuntime` constructs `SourceFetcher` directly
 
-## SOTA Research (2026-03-24)
-
-| Tool | Verdict |
-|------|---------|
-| **Crawl4AI** | Best fit — free, OSS, anti-bot detection, Markdown output for LLM |
-| Firecrawl | Great cloud API, self-hosted crippled (anti-bot is proprietary) |
-| Scrapfly | Best anti-bot, cloud-only, $30-100/mo |
-| Tavily | Search API, wrong tool for fetching |
-| Jina Reader | Good markdown, explicitly no anti-bot |
-| httpx+trafilatura | Current — works for cooperative sites, blind to paywalls |
-
-### Community Research (2026-03-24)
-
-**Crawl4AI real-world findings:**
-- 62.5k GitHub stars, actively maintained (v0.8.5), Apache-2.0
-- Success rate ~89.7% vs Firecrawl's 95.3% (Bright Data benchmark)
-- Anti-bot detection works via 3-tier escalation: HTTP status → proxy rotation → fallback function
-- `CrawlResult.crawl_stats` exposes `resolved_by: "direct"|"proxy"|"fallback_fetch"|null`
-- **Gotchas:** 100-200MB RAM per browser instance; Playwright dependency; anti-bot bypass rate
-  can degrade as Cloudflare updates (FlareSolverr saw 90%→30% within weeks)
-- **Key insight from community:** Cloudflare now uses "AI Labyrinth" to redirect bots to
-  AI-generated honeypot pages — sophisticated anti-bot is an arms race
-
-**Industry trend (2026):**
-- Shift from "httpx + parse" to "browser automation + visual extraction"
-- Best practice: use httpx as fast path, escalate to browser only when needed
-- "Efficient pattern: LLMs generate scraper code once, run deterministically at scale"
-- Our httpx+trafilatura stack is still the recommended "Indie/MVP" approach per Bright Data
-
-**Risk assessment for Crawl4AI integration:**
-- LOW: Phase 1 (HTTP classification) — no new deps, immediate value
-- MEDIUM: Phase 2 (Crawl4AI) — adds Playwright dependency (~200MB), async migration needed
-- Crawl4AI's anti-bot is not magic — Cloudflare-protected paywalled news sites (Reuters, WSJ)
-  may still block regardless. The real win is skipping known-permanent 403s, not bypassing them.
-
-**Existing retry libraries (don't hand-roll):**
-- `retryhttp` (14 stars, actively maintained) — tenacity-based, retries 429/500/502/503/504,
-  supports httpx natively. `pip install retryhttp[httpx]`. Does NOT retry 403 (correct behavior).
-- `httpx-retries` — transport-layer retry for httpx. Successor to deprecated `httpx-retry`.
-  `RetryTransport` wraps httpx.Client. Configurable status codes and backoff.
-- Either of these could replace our hand-rolled retry in loop.py's `_retry_api_call`.
-
-**Crawl4AI deployment concerns:**
-- Playwright is NOT optional — `crawl4ai-setup` installs browser binaries (~150MB Chromium)
-- 100-200MB RAM per browser instance
-- Playwright has known memory leaks in long-running sessions (Microsoft issue #6319, #15400, #29163)
-  — must recycle browser contexts periodically (e.g., every 10 pages)
-- MemoryAdaptiveDispatcher auto-adjusts concurrency but requires monitoring
-- No lightweight httpx-only mode exists
-
-**Revised Phase 1 recommendation:**
-Use `retryhttp` or `httpx-retries` instead of hand-rolling HTTP error classification.
-Both libraries already classify 403 as non-retryable and handle 429 with backoff.
-This reduces Phase 1 from ~50 lines of custom code to ~5 lines of configuration.
-
-Sources:
-- [Crawl4AI vs Firecrawl: Detailed Comparison 2026 (Bright Data)](https://brightdata.com/blog/ai/crawl4ai-vs-firecrawl)
-- [Crawl4AI Anti-Bot Documentation](https://docs.crawl4ai.com/advanced/anti-bot-and-fallback/)
-- [Crawl4AI vs Firecrawl: Full Comparison (CapSolver)](https://www.capsolver.com/blog/AI/crawl4ai-vs-firecrawl)
-- [AI Web Scraping 2026 (Morph)](https://www.morphllm.com/ai-web-scraping)
-- [Cloudflare AI Labyrinth](https://blog.cloudflare.com/ai-labyrinth/)
-- [Best Python HTTP Clients 2026 (Bright Data)](https://brightdata.com/blog/web-data/best-python-http-clients)
-- [retryhttp GitHub](https://github.com/austind/retryhttp)
-- [httpx-retries GitHub](https://github.com/will-ockmore/httpx-retries)
-- [Playwright Memory Issues (Microsoft #6319)](https://github.com/microsoft/playwright/issues/6319)
-- [AI Agent Retry Patterns (Fast.io)](https://fast.io/resources/ai-agent-retry-patterns/)
-- [Crawl4AI Self-Hosting Guide](https://docs.crawl4ai.com/core/self-hosting/)
-- [Crawl4AI Installation](https://docs.crawl4ai.com/core/installation/)
+SOTA research preserved in `docs/SOTA_RESEARCH.md`.
 
 ---
 
@@ -113,134 +45,200 @@ Sources:
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Keep httpx+trafilatura as default | Yes | Fast, no dependencies, works for most URLs |
-| Add Crawl4AI as optional escalation | Yes | Free, OSS, directly solves anti-bot. `pip install crawl4ai[all]` |
-| Where does error classification live | `FetchError.retryable` field | Consumers check this; no behavior change for existing code |
-| Sync vs async | Keep SourceFetcher sync, add AsyncSourceFetcher for Crawl4AI | Crawl4AI is async-only; don't force sync callers to change |
-| Known-blocked domain list | Configurable, not hardcoded | Pass via constructor or env var |
+| Where does classification live | `FetchError.retryable` field | Consumers check this; backward-compatible (default `True`) |
+| How to classify | Status code check in `SourceFetcher.fetch()` | ~20 lines, no new dependencies |
+| Transport-level retry (retryhttp) | **Deferred** — internal optimization after gate is proven | Consumer still controls retry policy; library classifies errors |
+| Crawl4AI | **Out of scope** — deferred to v0.5 per ROADMAP | Most blocked sites are paywalls, not anti-bot. Prove this first. |
+| Consumer update | **In this slice** | Library change alone doesn't unblock — loop.py must check `retryable` |
+| Expose config through facade | Yes — `OpenWebRetrievalClient` gets `blocked_domains` param | Prevent consumers from bypassing the facade |
+| Fix silent trafilatura swallow | Yes — log warning, don't silently return None | Repo rule: fail loud |
+
+---
+
+## Files Affected
+
+- `src/open_web_retrieval/exceptions.py` (modify — add `retryable` field to `FetchError`)
+- `src/open_web_retrieval/fetch_extract.py` (modify — classify HTTP status, blocked domains, fix silent swallow)
+- `src/open_web_retrieval/client.py` (modify — pass `blocked_domains` through to `SourceFetcher`)
+- `tests/test_fetch_extract.py` (modify — add classification tests)
+- `research_v3/loop.py` (modify — check `FetchError.retryable` in `_retry_api_call`)
 
 ---
 
 ## Plan
 
-### Phase 1: HTTP Error Classification (no new dependencies)
+### Step 1: Add `retryable` field to `FetchError`
 
-**Step 1.1: Add `retryable` field to FetchError**
 ```python
+# exceptions.py
 class FetchError(OpenWebRetrievalError):
-    retryable: bool = True
+    """Failure while fetching remote content."""
+    error_code = "OPEN_WEB_RETRIEVAL_FETCH_ERROR"
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        retryable: bool = True,
+        context: dict[str, object] | None = None,
+    ) -> None:
+        super().__init__(message, context=context)
+        self.retryable = retryable
 ```
 
-**Step 1.2: Classify HTTP status codes in SourceFetcher.fetch()**
+Default `True` preserves backward compatibility — existing callers that don't
+check `retryable` behave exactly as before.
+
+### Step 2: Classify HTTP status in `SourceFetcher.fetch()`
+
 ```python
+# fetch_extract.py
 NON_RETRYABLE_STATUS = {401, 403, 404, 410, 451}
 
+# In fetch():
 except httpx.HTTPStatusError as exc:
     retryable = exc.response.status_code not in NON_RETRYABLE_STATUS
-    raise FetchError(..., retryable=retryable) from exc
+    raise FetchError(
+        f"HTTP {exc.response.status_code}",
+        retryable=retryable,
+        context={"url": request.url, "status": exc.response.status_code},
+    ) from exc
 ```
 
-**Step 1.3: Add optional blocked_domains parameter**
+Separate `HTTPStatusError` from generic `HTTPError` (timeouts, connection errors)
+which remain retryable.
+
+### Step 3: Add `blocked_domains` to `SourceFetcher`
+
 ```python
-def __init__(self, *, blocked_domains: set[str] | None = None, ...):
-    self._blocked_domains = blocked_domains or set()
+# fetch_extract.py
+from urllib.parse import urlparse
 
-def fetch(self, request):
-    domain = urlparse(request.url).netloc.removeprefix("www.")
-    if domain in self._blocked_domains:
-        raise FetchError("blocked domain", retryable=False, ...)
+class SourceFetcher:
+    def __init__(self, *, blocked_domains: set[str] | None = None, ...):
+        self._blocked_domains = blocked_domains or set()
+
+    def fetch(self, request):
+        domain = urlparse(request.url).netloc.removeprefix("www.")
+        if domain in self._blocked_domains:
+            raise FetchError(
+                f"blocked domain: {domain}",
+                retryable=False,
+                context={"url": request.url, "domain": domain},
+            )
+        # ... existing fetch logic
 ```
 
-**Acceptance criteria (Phase 1):**
-- [ ] `FetchError` has `retryable: bool` field
-- [ ] 403/401/404 raise with `retryable=False`
-- [ ] 429/500/503 raise with `retryable=True`
-- [ ] `blocked_domains` parameter skips fetch immediately
-- [ ] Existing tests pass (no behavior change for callers that don't check `retryable`)
-- [ ] New tests for each status code classification
+### Step 4: Expose `blocked_domains` through `OpenWebRetrievalClient`
 
-### Phase 2: Crawl4AI Escalation Backend (optional dependency)
-
-**Step 2.1: Add `crawl4ai` as optional dependency**
-```toml
-[project.optional-dependencies]
-antibот = ["crawl4ai[all]"]
-```
-
-**Step 2.2: Add `Crawl4AIFetcher` class**
-Async fetcher that wraps `AsyncWebCrawler`. Maps `CrawlResult` to `FetchedResource`.
-Uses Crawl4AI's anti-bot detection and stealth Playwright.
-
-**Step 2.3: Add escalation logic to SourceFetcher**
 ```python
-def fetch(self, request):
-    try:
-        return self._httpx_fetch(request)  # fast path
-    except FetchError as exc:
-        if not exc.retryable or self._crawl4ai is None:
-            raise
-        return self._crawl4ai_fetch(request)  # escalation
+# client.py
+class OpenWebRetrievalClient:
+    def __init__(self, *, blocked_domains: set[str] | None = None, ...):
+        ...
+        self.fetcher = SourceFetcher(
+            timeout_seconds=timeout_seconds,
+            blocked_domains=blocked_domains,
+        )
 ```
 
-**Acceptance criteria (Phase 2):**
-- [ ] `pip install open_web_retrieval[antibot]` installs crawl4ai
-- [ ] Crawl4AI backend produces valid `FetchedResource` with provenance
-- [ ] Escalation fires on 403 when Crawl4AI is available
-- [ ] Without crawl4ai installed, behavior is identical to Phase 1
+### Step 5: Fix silent trafilatura swallow
 
-### Phase 3: Consumer Updates
-
-**Step 3.1: Update research_v3 loop.py**
-Check `exc.retryable` in `_retry_api_call` before retrying:
 ```python
-except FetchError as exc:
-    if not exc.retryable:
-        logger.info("Skipping non-retryable: %s", exc)
-        return None
+# fetch_extract.py line 58-59
+except Exception as exc:
+    import logging
+    logging.getLogger(__name__).warning("trafilatura extraction failed: %s", exc)
+    return None  # fall through to tag-stripping fallback
 ```
 
-**Acceptance criteria (Phase 3):**
-- [ ] research_v3 loop skips permanent failures immediately
-- [ ] Loop completes F1 question in <10 minutes (was timing out at 20)
+Log the warning. Still falls back to tag stripping, but the failure is visible.
+
+### Step 6: Update consumer (research_v3 `loop.py`)
+
+In `_retry_api_call`, check `retryable` before retrying:
+
+```python
+except Exception as exc:
+    from open_web_retrieval.exceptions import FetchError
+    if isinstance(exc, FetchError) and not exc.retryable:
+        logger.info("Skipping non-retryable %s: %s", label, exc)
+        raise  # don't retry — let caller handle
+    # ... existing retry logic for retryable errors
+```
+
+### Step 7: Tests
+
+Add to `tests/test_fetch_extract.py` (existing file, not a new one):
+
+| Test | What It Verifies |
+|------|------------------|
+| `test_fetch_403_not_retryable` | 403 → `FetchError(retryable=False)` |
+| `test_fetch_429_retryable` | 429 → `FetchError(retryable=True)` |
+| `test_fetch_500_retryable` | 500 → `FetchError(retryable=True)` |
+| `test_fetch_timeout_retryable` | Timeout → `FetchError(retryable=True)` |
+| `test_fetch_blocked_domain` | Blocked domain → immediate `FetchError(retryable=False)` |
+| `test_fetch_retryable_default_true` | `FetchError()` defaults to `retryable=True` |
 
 ---
 
-## Required Tests
+## Acceptance Criteria
 
-### New Tests
+- [ ] `FetchError` has `retryable: bool` field (default `True`)
+- [ ] 401/403/404/410/451 raise with `retryable=False`
+- [ ] 429/500/502/503/504 raise with `retryable=True`
+- [ ] Timeouts and connection errors raise with `retryable=True`
+- [ ] `blocked_domains` parameter on both `SourceFetcher` and `OpenWebRetrievalClient`
+- [ ] Silent trafilatura swallow replaced with logged warning
+- [ ] research_v3 `loop.py` checks `FetchError.retryable` — skips permanent failures
+- [ ] All existing tests pass
+- [ ] New tests for each classification case
+- [ ] **Gate: research_v3 loop completes F1 in <10 minutes**
 
-| Test File | Test Function | What It Verifies |
-|-----------|---------------|------------------|
-| `tests/test_fetch.py` | `test_403_is_not_retryable` | 403 → FetchError(retryable=False) |
-| `tests/test_fetch.py` | `test_429_is_retryable` | 429 → FetchError(retryable=True) |
-| `tests/test_fetch.py` | `test_blocked_domain_skips` | Blocked domain → immediate FetchError |
-| `tests/test_fetch.py` | `test_escalation_to_crawl4ai` | 403 on httpx → escalation to Crawl4AI |
+---
 
-### Existing Tests (Must Pass)
+## Error Taxonomy
 
-| Test Pattern | Why |
-|--------------|-----|
-| All existing open_web_retrieval tests | No behavior change for callers that don't check retryable |
+| Error | Retryable | Rationale |
+|-------|-----------|-----------|
+| HTTP 401 Unauthorized | No | Auth failure — retrying won't help |
+| HTTP 403 Forbidden | No | Paywall or bot-block — retrying wastes time |
+| HTTP 404 Not Found | No | Page doesn't exist |
+| HTTP 410 Gone | No | Explicitly removed |
+| HTTP 451 Legal | No | Legally blocked |
+| HTTP 429 Too Many Requests | Yes | Rate limited — back off and retry |
+| HTTP 500 Server Error | Yes | Transient server failure |
+| HTTP 502 Bad Gateway | Yes | Proxy/upstream failure |
+| HTTP 503 Service Unavailable | Yes | Temporary overload |
+| HTTP 504 Gateway Timeout | Yes | Upstream timeout |
+| Connection error | Yes | Network transient |
+| Timeout | Yes | Network transient |
+| Blocked domain | No | Configured skip |
 
 ---
 
 ## Budget
 
-- Phase 1: ~1 hour (HTTP classification, no new deps)
-- Phase 2: ~2 hours (Crawl4AI integration, async adapter)
-- Phase 3: ~30 minutes (consumer update)
-- **Total: ~3.5 hours**
+~1.5 hours total:
+- Steps 1-5 (library): ~45 minutes
+- Step 6 (consumer): ~15 minutes
+- Step 7 (tests): ~30 minutes
 
 ---
 
 ## Notes
 
-- Phase 1 alone solves the immediate problem (no more retrying 403s). Phase 2 adds
-  the ability to actually fetch from anti-bot protected sites.
-- Crawl4AI is async-only (`AsyncWebCrawler`). The sync `SourceFetcher` can call it
-  via `asyncio.run()` or we add a parallel `AsyncSourceFetcher`.
-- The root CLAUDE.md principle applies: "Prefer libraries when failures surface in
-  their output." Crawl4AI's anti-bot failures surface clearly (CrawlResult.success,
-  block detection reason). We can diagnose without reading Crawl4AI internals.
-- Community feedback on Crawl4AI needed — check Reddit/Twitter for real-world usage
-  reports and gotchas before committing to Phase 2.
+- **No new dependencies.** retryhttp/httpx-retries are deferred as internal
+  optimizations. The consumer controls retry policy; the library classifies errors.
+- **Crawl4AI is out of scope.** Moved to ROADMAP v0.5. The escalation logic in
+  the old plan was contradictory (403 = non-retryable but escalation checked
+  `retryable=True`). Don't build it until we prove paywalls aren't the real problem.
+- **Transport-level retry is a future optimization.** The consumer (loop.py)
+  already has retry logic. Making the library retry internally would duplicate
+  that. Classify first, optimize later.
+
+## SOTA Research
+
+Preserved in full — moved to `docs/SOTA_RESEARCH.md` to keep this plan focused.
+Key finding: community consensus is that 403 from paywalled news sites should
+be treated as permanent failures, not candidates for anti-bot bypass.
