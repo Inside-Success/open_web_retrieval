@@ -770,3 +770,90 @@ shell or single-page application bootstrap.</p>
         )
         doc = fetcher.extract(resource)
         assert fetcher.metrics.auto_rendered == 0
+
+
+class TestEnhancedSPADetection:
+    """Tests for enhanced SPA detection: framework mount points, noscript, embedded JSON."""
+
+    def test_spa_detection_react_mount(self):
+        """<div id="root"></div> detected as SPA when text is short."""
+        from open_web_retrieval.fetch_extract import _looks_like_js_shell
+
+        html = b"""<!DOCTYPE html>
+<html><head><title>App</title></head>
+<body>
+<div id="root"></div>
+<script src="/app.js"></script>
+</body></html>"""
+        assert _looks_like_js_shell(html, "App") is True
+
+    def test_spa_detection_vue_mount(self):
+        """<div id="app"></div> detected as SPA when text is short."""
+        from open_web_retrieval.fetch_extract import _looks_like_js_shell
+
+        html = b"""<!DOCTYPE html>
+<html><head><title>Vue App</title></head>
+<body>
+<div id="app"></div>
+<script src="/dist/build.js"></script>
+</body></html>"""
+        assert _looks_like_js_shell(html, "Vue App") is True
+
+    def test_spa_detection_noscript(self):
+        """noscript 'enable JavaScript' detected as SPA when text is short."""
+        from open_web_retrieval.fetch_extract import _looks_like_js_shell
+
+        html = b"""<!DOCTYPE html>
+<html><head><title>App</title></head>
+<body>
+<noscript>You need to enable JavaScript to run this app.</noscript>
+<div id="main"></div>
+</body></html>"""
+        assert _looks_like_js_shell(html, "App") is True
+
+    def test_spa_detection_normal_page_not_triggered(self):
+        """Normal page with real content is NOT flagged as SPA."""
+        from open_web_retrieval.fetch_extract import _looks_like_js_shell
+
+        html = b"""<!DOCTYPE html>
+<html><head><title>Real Article</title></head>
+<body>
+<article>
+<h1>Understanding Climate Change</h1>
+<p>Climate change refers to long-term shifts in temperatures and weather patterns.</p>
+<p>These shifts may be natural, but since the 1800s, human activities have been
+the main driver of climate change, primarily due to the burning of fossil fuels.</p>
+</article>
+</body></html>"""
+        long_text = "Understanding Climate Change. " * 30  # well over 500 chars
+        assert _looks_like_js_shell(html, long_text) is False
+
+    def test_extract_embedded_json_next_data(self):
+        """__NEXT_DATA__ JSON is extracted from script tag."""
+        from open_web_retrieval.fetch_extract import _extract_embedded_json
+
+        html = b"""<!DOCTYPE html>
+<html><head><title>Next.js App</title></head>
+<body>
+<div id="__next"></div>
+<script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"title":"Hello World","content":"Article body"}}}</script>
+</body></html>"""
+        result = _extract_embedded_json(html)
+        assert result is not None
+        assert "Hello World" in result
+        assert "Article body" in result
+
+    def test_extract_embedded_json_none_when_absent(self):
+        """Returns None for normal HTML without embedded JSON."""
+        from open_web_retrieval.fetch_extract import _extract_embedded_json
+
+        html = b"""<!DOCTYPE html>
+<html><head><title>Normal Page</title></head>
+<body>
+<article>
+<h1>Real content here</h1>
+<p>Just a normal web page with no framework JSON.</p>
+</article>
+</body></html>"""
+        result = _extract_embedded_json(html)
+        assert result is None

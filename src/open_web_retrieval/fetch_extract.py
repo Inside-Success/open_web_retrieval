@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from datetime import datetime as _datetime
 from datetime import timezone as _timezone
@@ -148,7 +149,7 @@ def _extract_with_trafilatura(html_text: str, url: str | None = None) -> tuple[s
 
     try:
         # Call 1: bare_extraction for text + metadata (single parse)
-        doc = bare_extraction(html_text, url=url, with_metadata=True)
+        doc = bare_extraction(html_text, url=url, with_metadata=True, favor_recall=True)
 
         txt = ""
         metadata: dict = {}
@@ -163,7 +164,7 @@ def _extract_with_trafilatura(html_text: str, url: str | None = None) -> tuple[s
 
         # Call 2: extract for markdown (separate parse — different output format)
         md = extract(html_text, output_format="markdown", include_links=True,
-                     include_tables=True, url=url)
+                     include_tables=True, url=url, favor_recall=True)
 
         return (txt, _strip_frontmatter(md) if md else "", metadata)
     except Exception as exc:
@@ -175,23 +176,124 @@ def _extract_with_trafilatura(html_text: str, url: str | None = None) -> tuple[s
 _SPA_MIN_TEXT_LEN = 500
 _SPA_SCRIPT_RATIO = 0.3  # >30% of HTML is <script> tags
 
+# SPA framework mount-point IDs — empty divs with these IDs are strong SPA signals.
+_SPA_MOUNT_IDS = (b"root", b"app", b"__next", b"__nuxt")
+
+# Regex for __NEXT_DATA__ JSON extraction
+_NEXT_DATA_RE = re.compile(
+    rb"""<script\s+id=["']__NEXT_DATA__["']\s+type=["']application/json["']\s*>(.*?)</script>""",
+    re.DOTALL | re.IGNORECASE,
+)
+
+# Regex for __NUXT__ JSON extraction
+_NUXT_DATA_RE = re.compile(
+    rb'window\.__NUXT__\s*=\s*({.*?})\s*;?\s*</script>',
+    re.DOTALL,
+)
+
+# Noscript patterns that indicate JS-required pages
+_NOSCRIPT_JS_REQUIRED = re.compile(
+    rb'<noscript[^>]*>.*?(?:enable\s+javascript|javascript\s+is\s+required|javascript\s+must\s+be\s+enabled).*?</noscript>',
+    re.DOTALL | re.IGNORECASE,
+)
+
+
+def _has_empty_mount_point(html_lower: bytes) -> bool:
+    """Detect common SPA framework mount points (empty or whitespace-only divs).
+
+    Checks for React (<div id="root">), Vue (<div id="app">),
+    Next.js (<div id="__next">), and Nuxt (<div id="__nuxt">).
+    Returns True if any are found with empty or near-empty content.
+    """
+    for mount_id in _SPA_MOUNT_IDS:
+        # Match <div id="root"></div> or <div id="root"> </div>
+        # Use string search instead of regex for reliability
+        for quote in (b'"', b"'"):
+            tag_open = b'<div' + b' id=' + quote + mount_id + quote
+            if tag_open not in html_lower:
+                continue
+            # Found the opening tag — check if div is empty
+            start = html_lower.find(tag_open)
+            # Find the closing > of the opening tag
+            gt = html_lower.find(b'>', start)
+            if gt == -1:
+                continue
+            # Check what follows: whitespace then </div>
+            after = html_lower[gt + 1:gt + 20].lstrip()
+            if after.startswith(b'</div>'):
+                return True
+    return False
+
+
+def _has_noscript_js_warning(html_bytes: bytes) -> bool:
+    """Detect <noscript> blocks warning that JavaScript is required.
+
+    This is a definitive SPA signal — the page explicitly says it needs JS.
+    """
+    return bool(_NOSCRIPT_JS_REQUIRED.search(html_bytes))
+
+
+def _extract_embedded_json(html_bytes: bytes) -> str | None:
+    """Extract pre-rendered JSON data from SSR framework script tags.
+
+    Many SSR frameworks embed serialized page data as JSON:
+    - Next.js: <script id="__NEXT_DATA__" type="application/json">{...}</script>
+    - Nuxt: <script>window.__NUXT__={...}</script>
+
+    Returns the JSON string if found, None otherwise. This JSON can be used
+    as document content WITHOUT needing Playwright rendering.
+    """
+    # Try __NEXT_DATA__ first (more common, cleaner format)
+    match = _NEXT_DATA_RE.search(html_bytes)
+    if match:
+        json_bytes = match.group(1).strip()
+        if json_bytes:
+            return json_bytes.decode("utf-8", errors="replace")
+
+    # Try __NUXT__ assignment
+    match = _NUXT_DATA_RE.search(html_bytes)
+    if match:
+        json_bytes = match.group(1).strip()
+        if json_bytes:
+            return json_bytes.decode("utf-8", errors="replace")
+
+    return None
+
 
 def _looks_like_js_shell(html_bytes: bytes, extracted_text: str) -> bool:
     """Detect JS-rendered SPAs that return an empty HTML shell.
 
-    Returns True if the extracted text is suspiciously short AND the raw HTML
-    contains a high ratio of <script> tags — indicating the real content is
-    rendered client-side.
+    Returns True if ANY of these conditions hold:
+    1. Original heuristic: short text + high script-to-HTML ratio
+    2. Empty SPA framework mount point detected + short text
+    3. <noscript> "enable JavaScript" warning + short text
+
+    The text-length check (_SPA_MIN_TEXT_LEN) gates all signals to avoid
+    false positives on pages that happen to use React but SSR properly.
     """
+    if len(html_bytes) == 0:
+        return False
     if len(extracted_text) >= _SPA_MIN_TEXT_LEN:
         return False
+
     html_lower = html_bytes.lower()
+
+    # Signal 1: high script-to-HTML ratio (original heuristic)
     script_bytes = sum(
         len(seg) for seg in html_lower.split(b"<script")[1:]
     )
-    if len(html_bytes) == 0:
-        return False
-    return (script_bytes / len(html_bytes)) > _SPA_SCRIPT_RATIO
+    if (script_bytes / len(html_bytes)) > _SPA_SCRIPT_RATIO:
+        return True
+
+    # Signal 2: empty SPA framework mount point
+    if _has_empty_mount_point(html_lower):
+        return True
+
+    # Signal 3: noscript warning about JavaScript being required
+    if _has_noscript_js_warning(html_bytes):
+        return True
+
+    return False
 
 
 def _extract_text(
@@ -725,63 +827,86 @@ class SourceFetcher:
             extraction_method=method_used,
             warnings=warnings,
         )
-        # Check for JS-rendered SPA: short text + script-heavy HTML → try Playwright
+        # Check for JS-rendered SPA: short text + script-heavy HTML → try embedded JSON, then Playwright
         if (
             self._enable_auto_render
             and resource.fetch_method != "render_playwright"
             and resource.fetch_method != "crawl4ai"
             and _looks_like_js_shell(resource.content_bytes, document.text)
         ):
-            try:
+            # Try embedded JSON first (Next.js __NEXT_DATA__, Nuxt __NUXT__) — much faster than Playwright
+            embedded_json = _extract_embedded_json(resource.content_bytes)
+            if embedded_json:
                 logger.info(
-                    "SPA_DETECTED url=%s text_len=%d — re-fetching with Playwright",
+                    "SPA_DETECTED url=%s text_len=%d — extracted embedded JSON (%d chars)",
                     resource.requested_url,
                     len(document.text),
-                )
-                rendered_request = FetchRequest(
-                    url=resource.requested_url,
-                    render_mode="always",
-                    user_agent_profile=self.user_agent_profile,
-                )
-                rendered_resource = self.fetch(rendered_request)
-                rendered_resource = FetchedResource(
-                    requested_url=rendered_resource.requested_url,
-                    final_url=rendered_resource.final_url,
-                    status=rendered_resource.status,
-                    content_type=rendered_resource.content_type,
-                    content_bytes=rendered_resource.content_bytes,
-                    retrieved_at_utc=rendered_resource.retrieved_at_utc,
-                    fetch_method="render_playwright",
-                    sha256=rendered_resource.sha256,
-                )
-                text, markdown, metadata, method_used, warnings = _extract_text(
-                    rendered_resource, method=method
+                    len(embedded_json),
                 )
                 document = ExtractedDocument(
                     source_url=resource.requested_url,
-                    final_url=rendered_resource.final_url,
-                    title=metadata.get("title"),
-                    publisher_guess=metadata.get("sitename") or metadata.get("author"),
-                    published_at_guess=_parse_date_string(metadata.get("date")),
-                    text=text,
-                    markdown=markdown,
+                    final_url=resource.final_url,
+                    title=document.title,
+                    publisher_guess=document.publisher_guess,
+                    published_at_guess=document.published_at_guess,
+                    text=embedded_json,
+                    markdown="",
                     document_type="html",
-                    extraction_method=f"{method_used}+render",
-                    warnings=warnings + ["auto-rendered: original was JS shell"],
+                    extraction_method="embedded_json",
+                    warnings=document.warnings + ["extracted embedded SSR JSON (no render needed)"],
                 )
-                self.metrics.auto_rendered += 1
-                logger.info(
-                    "SPA_RENDERED url=%s text_len=%d markdown_len=%d",
-                    resource.requested_url,
-                    len(document.text),
-                    len(document.markdown),
-                )
-            except Exception as exc:
-                logger.warning(
-                    "SPA_RENDER_FAILED url=%s error=%s — keeping original extraction",
-                    resource.requested_url,
-                    exc,
-                )
+            else:
+                # Fall back to Playwright rendering
+                try:
+                    logger.info(
+                        "SPA_DETECTED url=%s text_len=%d — re-fetching with Playwright",
+                        resource.requested_url,
+                        len(document.text),
+                    )
+                    rendered_request = FetchRequest(
+                        url=resource.requested_url,
+                        render_mode="always",
+                        user_agent_profile=self.user_agent_profile,
+                    )
+                    rendered_resource = self.fetch(rendered_request)
+                    rendered_resource = FetchedResource(
+                        requested_url=rendered_resource.requested_url,
+                        final_url=rendered_resource.final_url,
+                        status=rendered_resource.status,
+                        content_type=rendered_resource.content_type,
+                        content_bytes=rendered_resource.content_bytes,
+                        retrieved_at_utc=rendered_resource.retrieved_at_utc,
+                        fetch_method="render_playwright",
+                        sha256=rendered_resource.sha256,
+                    )
+                    text, markdown, metadata, method_used, warnings = _extract_text(
+                        rendered_resource, method=method
+                    )
+                    document = ExtractedDocument(
+                        source_url=resource.requested_url,
+                        final_url=rendered_resource.final_url,
+                        title=metadata.get("title"),
+                        publisher_guess=metadata.get("sitename") or metadata.get("author"),
+                        published_at_guess=_parse_date_string(metadata.get("date")),
+                        text=text,
+                        markdown=markdown,
+                        document_type="html",
+                        extraction_method=f"{method_used}+render",
+                        warnings=warnings + ["auto-rendered: original was JS shell"],
+                    )
+                    self.metrics.auto_rendered += 1
+                    logger.info(
+                        "SPA_RENDERED url=%s text_len=%d markdown_len=%d",
+                        resource.requested_url,
+                        len(document.text),
+                        len(document.markdown),
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "SPA_RENDER_FAILED url=%s error=%s — keeping original extraction",
+                        resource.requested_url,
+                        exc,
+                    )
 
         logger.debug(
             "EXTRACT url=%s method=%s title=%s markdown_len=%d text_len=%d",
