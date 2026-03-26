@@ -38,12 +38,23 @@ noscript detection, embedded JSON extraction), context manager protocol, cache
 hardening (file locking, LRU eviction, stats), async support (AsyncSourceFetcher,
 AsyncOpenWebRetrievalClient), integration test suite. Plan #06 complete, 143 tests.
 
-**What's next:** v1.0 (shareable library) is gated on ROADMAP Phase 4. The library
-is feature-complete for current consumer needs.
+**What's next:** v1.0 (shareable library) is still gated on ROADMAP Phase 4. For
+current consumers, the next justified work is evidence-driven maintenance:
+Plan #09 (`docs/plans/09_grounded_research_followups.md`) captures the shared
+retrieval/fallback/diagnostics improvements surfaced by grounded-research.
 
 ---
 
 ## The Path
+
+### Evidence-Driven Maintenance: grounded-research Follow-Ups
+
+This is not a new expansion program. It is a shared-quality follow-up triggered
+by real downstream benchmark work:
+
+- tighten fallback handling for hard pages and PDFs
+- improve retrieval diagnostics on the existing `tool_call_logger` surface
+- normalize `trace_id` / `task` propagation across shared entrypoints
 
 ### v0.5: Anti-Bot Escalation (shipped)
 
