@@ -13,12 +13,18 @@ See `REQUIREMENTS.md` for capabilities inventory and success criteria.
 Extract (trafilatura) → Provenance. Pydantic contracts, caching, optional Playwright.
 
 **v0.2 (shipped, 2026-03-25):** Resilient fetch. `FetchError.retryable` classifies
-HTTP errors. Blocked domains skip immediately. Consumer (research_v3 loop.py) checks
-`retryable` before retrying. Plan #01 complete, 79 tests pass.
+HTTP errors. Blocked domains skip immediately. Plan #01 complete, 79 tests.
 
-**What's next:** The library can run single questions but isn't production-ready for
-sustained autonomous operation — no rate limiting, no Retry-After respect, no fetch
-metrics, no robots.txt.
+**v0.3 (shipped, 2026-03-25):** Robust fetch. Retry-After header respected on 429.
+Per-domain rate limiting (2 req/s default). FetchMetrics counters. Plan #02 complete, 87 tests.
+
+**v0.4 (shipped, 2026-03-25):** Enhanced extraction. Markdown output from trafilatura.
+Metadata populated (title, author, date, sitename). Search result dedup by URL.
+Plan #03 complete, 98 tests.
+
+**What's next:** v0.5 (anti-bot via Crawl4AI) is deferred until proven necessary.
+v1.0 (shareable library) is gated on ROADMAP Phase 4. The library is feature-complete
+for current consumer needs.
 
 ---
 
