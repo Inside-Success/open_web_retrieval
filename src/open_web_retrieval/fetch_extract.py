@@ -20,6 +20,13 @@ from open_web_retrieval.models import (
     FetchRequest,
     FetchedResource,
 )
+from open_web_retrieval.observability import (
+    ToolCallLogger,
+    duration_ms,
+    emit_tool_call,
+    make_tool_call_id,
+    utc_now_iso,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -197,6 +204,7 @@ class SourceFetcher:
         client: httpx.Client | None = None,
         blocked_domains: set[str] | None = None,
         rate_limit_per_second: float = 2.0,
+        tool_call_logger: ToolCallLogger | None = None,
     ) -> None:
         """Construct a fetcher with injected HTTP transport.
 
@@ -213,6 +221,7 @@ class SourceFetcher:
         self._rate_limit = rate_limit_per_second
         self._last_request: dict[str, float] = {}  # domain -> monotonic timestamp
         self.metrics = FetchMetrics()
+        self.tool_call_logger = tool_call_logger
 
     def _rate_limit_wait(self, domain: str) -> None:
         """Sleep if needed to respect per-domain rate limits."""
@@ -228,7 +237,13 @@ class SourceFetcher:
                 self.metrics.total_wait_seconds += wait
         self._last_request[domain] = time.monotonic()
 
-    def fetch(self, request: FetchRequest) -> FetchedResource:
+    def fetch(
+        self,
+        request: FetchRequest,
+        *,
+        trace_id: str | None = None,
+        task: str | None = None,
+    ) -> FetchedResource:
         """Fetch the URL using direct HTTP with normalized provenance output.
 
         Raises FetchError with retryable=False for permanent failures (4xx auth/not-found,
@@ -236,10 +251,51 @@ class SourceFetcher:
 
         On 429 responses, respects the Retry-After header and retries once.
         """
+        call_id = make_tool_call_id()
+        started_at = utc_now_iso()
+        started_monotonic = time.monotonic() if self.tool_call_logger is not None else None
+
         # Check blocked domains before making any network request.
         domain = urlparse(request.url).netloc.removeprefix("www.")
+        base_metrics = {
+            "domain": domain,
+            "render_mode": request.render_mode,
+            "max_bytes": request.max_bytes,
+        }
+        emit_tool_call(
+            self.tool_call_logger,
+            call_id=call_id,
+            tool_name="open_web_retrieval",
+            operation="fetch",
+            provider="playwright" if request.render_mode == "always" else "httpx",
+            target=request.url,
+            status="started",
+            started_at=started_at,
+            attempt=1,
+            task=task,
+            trace_id=trace_id,
+            metrics=base_metrics,
+        )
         if domain in self._blocked_domains:
             self.metrics.skipped_blocked += 1
+            emit_tool_call(
+                self.tool_call_logger,
+                call_id=call_id,
+                tool_name="open_web_retrieval",
+                operation="fetch",
+                provider="httpx",
+                target=request.url,
+                status="failed",
+                started_at=started_at,
+                ended_at=utc_now_iso(),
+                duration_ms_value=duration_ms(started_monotonic) if started_monotonic is not None else None,
+                attempt=1,
+                task=task,
+                trace_id=trace_id,
+                metrics={**base_metrics, "retryable": False},
+                error_type="FetchError",
+                error_message=f"blocked domain: {domain}",
+            )
             raise FetchError(
                 f"blocked domain: {domain}",
                 retryable=False,
@@ -258,6 +314,24 @@ class SourceFetcher:
                 response.raise_for_status()
         except httpx.TimeoutException as exc:
             self.metrics.failed += 1
+            emit_tool_call(
+                self.tool_call_logger,
+                call_id=call_id,
+                tool_name="open_web_retrieval",
+                operation="fetch",
+                provider="httpx",
+                target=request.url,
+                status="failed",
+                started_at=started_at,
+                ended_at=utc_now_iso(),
+                duration_ms_value=duration_ms(started_monotonic) if started_monotonic is not None else None,
+                attempt=1,
+                task=task,
+                trace_id=trace_id,
+                metrics={**base_metrics, "retryable": True},
+                error_type=exc.__class__.__name__,
+                error_message=str(exc),
+            )
             raise FetchError(
                 "fetch timed out",
                 retryable=True,
@@ -265,17 +339,91 @@ class SourceFetcher:
             ) from exc
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 429:
+                emit_tool_call(
+                    self.tool_call_logger,
+                    call_id=call_id,
+                    tool_name="open_web_retrieval",
+                    operation="fetch",
+                    provider="httpx",
+                    target=request.url,
+                    status="failed",
+                    started_at=started_at,
+                    ended_at=utc_now_iso(),
+                    duration_ms_value=duration_ms(started_monotonic) if started_monotonic is not None else None,
+                    attempt=1,
+                    task=task,
+                    trace_id=trace_id,
+                    metrics={**base_metrics, "http_status": 429, "retryable": True},
+                    error_type="HTTPStatusError",
+                    error_message="HTTP 429",
+                )
                 # Respect Retry-After header and retry once.
                 retry_after_header = exc.response.headers.get("Retry-After")
                 wait = _parse_retry_after(retry_after_header) if retry_after_header else _DEFAULT_RETRY_AFTER_SECONDS
                 self.metrics.total_wait_seconds += wait
                 time.sleep(wait)
                 self.metrics.retried += 1
+                retry_call_id = make_tool_call_id()
+                retry_started_at = utc_now_iso()
+                retry_started_monotonic = time.monotonic() if self.tool_call_logger is not None else None
+                emit_tool_call(
+                    self.tool_call_logger,
+                    call_id=retry_call_id,
+                    tool_name="open_web_retrieval",
+                    operation="fetch",
+                    provider="httpx",
+                    target=request.url,
+                    status="started",
+                    started_at=retry_started_at,
+                    attempt=2,
+                    task=task,
+                    trace_id=trace_id,
+                    metrics={**base_metrics, "retry_after_seconds": wait},
+                )
                 try:
                     response = self.client.get(request.url, headers=headers, follow_redirects=True)
                     response.raise_for_status()
+                    emit_tool_call(
+                        self.tool_call_logger,
+                        call_id=retry_call_id,
+                        tool_name="open_web_retrieval",
+                        operation="fetch",
+                        provider="httpx",
+                        target=request.url,
+                        status="succeeded",
+                        started_at=retry_started_at,
+                        ended_at=utc_now_iso(),
+                        duration_ms_value=duration_ms(retry_started_monotonic) if retry_started_monotonic is not None else None,
+                        attempt=2,
+                        task=task,
+                        trace_id=trace_id,
+                        metrics={
+                            **base_metrics,
+                            "http_status": response.status_code,
+                            "content_type": response.headers.get("content-type"),
+                            "retry_after_seconds": wait,
+                        },
+                    )
                 except (httpx.HTTPError, httpx.TimeoutException) as retry_exc:
                     self.metrics.failed += 1
+                    emit_tool_call(
+                        self.tool_call_logger,
+                        call_id=retry_call_id,
+                        tool_name="open_web_retrieval",
+                        operation="fetch",
+                        provider="httpx",
+                        target=request.url,
+                        status="failed",
+                        started_at=retry_started_at,
+                        ended_at=utc_now_iso(),
+                        duration_ms_value=duration_ms(retry_started_monotonic) if retry_started_monotonic is not None else None,
+                        attempt=2,
+                        task=task,
+                        trace_id=trace_id,
+                        metrics={**base_metrics, "http_status": 429, "retry_after_seconds": wait, "retryable": True},
+                        error_type=retry_exc.__class__.__name__,
+                        error_message=str(retry_exc),
+                    )
                     raise FetchError(
                         f"HTTP 429 retry failed",
                         retryable=True,
@@ -287,6 +435,24 @@ class SourceFetcher:
                     self.metrics.failed += 1
                 else:
                     self.metrics.skipped_permanent += 1
+                emit_tool_call(
+                    self.tool_call_logger,
+                    call_id=call_id,
+                    tool_name="open_web_retrieval",
+                    operation="fetch",
+                    provider="httpx",
+                    target=request.url,
+                    status="failed",
+                    started_at=started_at,
+                    ended_at=utc_now_iso(),
+                    duration_ms_value=duration_ms(started_monotonic) if started_monotonic is not None else None,
+                    attempt=1,
+                    task=task,
+                    trace_id=trace_id,
+                    metrics={**base_metrics, "http_status": exc.response.status_code, "retryable": retryable},
+                    error_type="HTTPStatusError",
+                    error_message=f"HTTP {exc.response.status_code}",
+                )
                 raise FetchError(
                     f"HTTP {exc.response.status_code}",
                     retryable=retryable,
@@ -294,6 +460,24 @@ class SourceFetcher:
                 ) from exc
         except httpx.HTTPError as exc:
             self.metrics.failed += 1
+            emit_tool_call(
+                self.tool_call_logger,
+                call_id=call_id,
+                tool_name="open_web_retrieval",
+                operation="fetch",
+                provider="httpx",
+                target=request.url,
+                status="failed",
+                started_at=started_at,
+                ended_at=utc_now_iso(),
+                duration_ms_value=duration_ms(started_monotonic) if started_monotonic is not None else None,
+                attempt=1,
+                task=task,
+                trace_id=trace_id,
+                metrics={**base_metrics, "retryable": True},
+                error_type=exc.__class__.__name__,
+                error_message=str(exc),
+            )
             raise FetchError(
                 "fetch failed",
                 retryable=True,
@@ -304,6 +488,28 @@ class SourceFetcher:
         if len(content) > request.max_bytes:
             content = content[: request.max_bytes]
         self.metrics.fetched += 1
+        emit_tool_call(
+            self.tool_call_logger,
+            call_id=call_id,
+            tool_name="open_web_retrieval",
+            operation="fetch",
+            provider="playwright" if request.render_mode == "always" else "httpx",
+            target=request.url,
+            status="succeeded",
+            started_at=started_at,
+            ended_at=utc_now_iso(),
+            duration_ms_value=duration_ms(started_monotonic) if started_monotonic is not None else None,
+            attempt=1,
+            task=task,
+            trace_id=trace_id,
+            metrics={
+                **base_metrics,
+                "http_status": response.status_code,
+                "content_type": response.headers.get("content-type"),
+                "byte_count": len(content),
+                "final_url": str(response.url),
+            },
+        )
         return FetchedResource(
             requested_url=request.url,
             final_url=str(response.url),
@@ -350,10 +556,34 @@ class SourceFetcher:
         )
         return response
 
-    def extract(self, resource: FetchedResource, *, method: str = "trafilatura") -> ExtractedDocument:
+    def extract(
+        self,
+        resource: FetchedResource,
+        *,
+        method: str = "trafilatura",
+        trace_id: str | None = None,
+        task: str | None = None,
+    ) -> ExtractedDocument:
         """Extract normalized text and provenance from fetched bytes."""
+        call_id = make_tool_call_id()
+        started_at = utc_now_iso()
+        started_monotonic = time.monotonic() if self.tool_call_logger is not None else None
+        emit_tool_call(
+            self.tool_call_logger,
+            call_id=call_id,
+            tool_name="open_web_retrieval",
+            operation="extract",
+            provider=method,
+            target=resource.requested_url,
+            status="started",
+            started_at=started_at,
+            attempt=1,
+            task=task,
+            trace_id=trace_id,
+            metrics={"content_type": resource.content_type, "fetch_method": resource.fetch_method},
+        )
         text, markdown, metadata, method_used, warnings = _extract_text(resource, method=method)
-        return ExtractedDocument(
+        document = ExtractedDocument(
             source_url=resource.requested_url,
             final_url=resource.final_url,
             title=metadata.get("title"),
@@ -365,6 +595,28 @@ class SourceFetcher:
             extraction_method=method_used,
             warnings=warnings,
         )
+        emit_tool_call(
+            self.tool_call_logger,
+            call_id=call_id,
+            tool_name="open_web_retrieval",
+            operation="extract",
+            provider=method_used,
+            target=resource.requested_url,
+            status="succeeded",
+            started_at=started_at,
+            ended_at=utc_now_iso(),
+            duration_ms_value=duration_ms(started_monotonic) if started_monotonic is not None else None,
+            attempt=1,
+            task=task,
+            trace_id=trace_id,
+            metrics={
+                "document_type": document.document_type,
+                "text_chars": len(document.text),
+                "markdown_chars": len(document.markdown),
+                "warning_count": len(document.warnings),
+            },
+        )
+        return document
 
     def close(self) -> None:
         """Release HTTP client resources."""

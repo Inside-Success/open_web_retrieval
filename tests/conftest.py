@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 from datetime import datetime, timezone
 
 import httpx
@@ -109,3 +111,25 @@ def owr_client(brave_adapter, searxng_adapter):
 def search_query():
     """Standard test search query."""
     return SearchQuery(query="test query", providers=("brave",), top_k=5)
+
+
+@pytest.fixture
+def fake_tool_call_logger(monkeypatch):
+    """Capture shared tool-call records without importing the real llm_client package."""
+
+    records: list[object] = []
+
+    class FakeToolCallResult:
+        """Small stand-in for llm_client.observability.tool_calls.ToolCallResult."""
+
+        def __init__(self, **kwargs):
+            self.__dict__.update(kwargs)
+
+    fake_module = types.ModuleType("llm_client.observability.tool_calls")
+    fake_module.ToolCallResult = FakeToolCallResult
+    monkeypatch.setitem(sys.modules, "llm_client.observability.tool_calls", fake_module)
+
+    def logger(record: object) -> None:
+        records.append(record)
+
+    return records, logger

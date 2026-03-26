@@ -88,6 +88,28 @@ class TestClientRetrieve:
         with pytest.raises(Exception):
             owr_client.retrieve(search_query, allow_partial=False)
 
+    def test_retrieve_emits_search_fetch_extract_tool_calls(self, brave_adapter, fetch_client, fake_tool_call_logger):
+        records, logger = fake_tool_call_logger
+        client = OpenWebRetrievalClient(
+            adapters={"brave": brave_adapter},
+            tool_call_logger=logger,
+        )
+        client.fetcher.client = fetch_client
+        client.fetcher._owns_client = False
+
+        query = SearchQuery(query="ubi pilot programs", providers=("brave",), top_k=1)
+        batch = client.retrieve(query, allow_partial=False, trace_id="trace_owr_1", task="collect")
+
+        assert len(batch.records) == 1
+        operations = [(record.operation, record.status) for record in records]
+        assert ("search", "started") in operations
+        assert ("search", "succeeded") in operations
+        assert ("fetch", "started") in operations
+        assert ("fetch", "succeeded") in operations
+        assert ("extract", "started") in operations
+        assert ("extract", "succeeded") in operations
+        assert all(record.trace_id == "trace_owr_1" for record in records)
+
 
 class TestClientExceptions:
     def test_error_codes_are_stable(self):

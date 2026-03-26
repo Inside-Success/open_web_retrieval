@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,6 +15,15 @@ from open_web_retrieval.cache import DiskCache
 from open_web_retrieval.exceptions import OpenWebRetrievalError, ProviderUnavailableError
 from open_web_retrieval.fetch_extract import SourceFetcher
 from open_web_retrieval.models import ExtractedDocument, FetchRequest, SearchHit, SearchQuery, SourceRecord
+from open_web_retrieval.observability import (
+    ToolCallLogger,
+    compact_query_target,
+    duration_ms,
+    emit_tool_call,
+    make_tool_call_id,
+    query_sha256,
+    utc_now_iso,
+)
 
 
 @dataclass(frozen=True)
@@ -38,6 +48,7 @@ class OpenWebRetrievalClient:
         cache_ttl_seconds: int = 3600,
         blocked_domains: set[str] | None = None,
         rate_limit_per_second: float = 2.0,
+        tool_call_logger: ToolCallLogger | None = None,
     ) -> None:
         """Configure provider adapters, fetcher, and optional disk cache.
 
@@ -72,8 +83,10 @@ class OpenWebRetrievalClient:
             timeout_seconds=timeout_seconds,
             blocked_domains=blocked_domains,
             rate_limit_per_second=rate_limit_per_second,
+            tool_call_logger=tool_call_logger,
         )
         self.default_providers = tuple(self.adapters.adapters.keys())
+        self.tool_call_logger = tool_call_logger
 
         self._search_cache: DiskCache | None = None
         self._fetch_cache: DiskCache | None = None
@@ -86,7 +99,13 @@ class OpenWebRetrievalClient:
         """Build a deterministic cache key for a search query + provider."""
         return f"search:{provider}:{query.query}:top_k={query.top_k}:recency={query.recency_days}"
 
-    def search(self, query: SearchQuery) -> list[SearchHit]:
+    def search(
+        self,
+        query: SearchQuery,
+        *,
+        trace_id: str | None = None,
+        task: str | None = None,
+    ) -> list[SearchHit]:
         """Execute search across requested providers and merge normalized hits."""
         providers = tuple(query.providers) if query.providers else self.default_providers
         if not providers:
@@ -112,14 +131,69 @@ class OpenWebRetrievalClient:
             if adapter is None:
                 missing.append(provider)
                 continue
+            call_id = make_tool_call_id()
+            started_at = utc_now_iso()
+            started_monotonic = time.monotonic() if self.tool_call_logger is not None else None
+            common_metrics = {
+                "query_sha256": query_sha256(query.query),
+                "top_k": query.top_k,
+            }
+            emit_tool_call(
+                self.tool_call_logger,
+                call_id=call_id,
+                tool_name="open_web_retrieval",
+                operation="search",
+                provider=provider,
+                target=compact_query_target(query.query),
+                status="started",
+                started_at=started_at,
+                attempt=1,
+                task=task,
+                trace_id=trace_id,
+                metrics=common_metrics,
+            )
             try:
                 hits = adapter.search(query)
                 combined_hits.extend(hits)
+                emit_tool_call(
+                    self.tool_call_logger,
+                    call_id=call_id,
+                    tool_name="open_web_retrieval",
+                    operation="search",
+                    provider=provider,
+                    target=compact_query_target(query.query),
+                    status="succeeded",
+                    started_at=started_at,
+                    ended_at=utc_now_iso(),
+                    duration_ms_value=duration_ms(started_monotonic) if started_monotonic is not None else None,
+                    attempt=1,
+                    task=task,
+                    trace_id=trace_id,
+                    metrics={**common_metrics, "returned_count": len(hits)},
+                )
                 # Store in cache
                 if self._search_cache is not None and hits:
                     cache_key = self._search_cache_key(query, provider)
                     self._search_cache.set(cache_key, [h.model_dump(mode="json") for h in hits])
             except OpenWebRetrievalError as exc:
+                emit_tool_call(
+                    self.tool_call_logger,
+                    call_id=call_id,
+                    tool_name="open_web_retrieval",
+                    operation="search",
+                    provider=provider,
+                    target=compact_query_target(query.query),
+                    status="failed",
+                    started_at=started_at,
+                    ended_at=utc_now_iso(),
+                    duration_ms_value=duration_ms(started_monotonic) if started_monotonic is not None else None,
+                    attempt=1,
+                    task=task,
+                    trace_id=trace_id,
+                    metrics=common_metrics,
+                    error_type=exc.__class__.__name__,
+                    error_message=str(exc),
+                )
                 failures.append(f"{provider}: {exc.error_code}")
             except Exception as exc:  # pragma: no cover - defensive hard fail
                 raise RuntimeError(f"unhandled provider exception for {provider}") from exc
@@ -150,9 +224,11 @@ class OpenWebRetrievalClient:
         *,
         fetch_request: FetchRequest | None = None,
         allow_partial: bool = False,
+        trace_id: str | None = None,
+        task: str | None = None,
     ) -> SourceRecordBatch:
         """Execute search + fetch + extract for a deterministic output batch."""
-        hits = self.search(query)
+        hits = self.search(query, trace_id=trace_id, task=task)
         request = fetch_request or FetchRequest(url="")
         records: list[SourceRecord] = []
 
@@ -185,8 +261,8 @@ class OpenWebRetrievalClient:
                         )
                     )
                 else:
-                    fetched = self.fetcher.fetch(per_hit_fetch)
-                    extracted = self.fetcher.extract(fetched)
+                    fetched = self.fetcher.fetch(per_hit_fetch, trace_id=trace_id, task=task)
+                    extracted = self.fetcher.extract(fetched, trace_id=trace_id, task=task)
                     provenance = {
                         "provider": hit.provider,
                         "provider_query": query.query,

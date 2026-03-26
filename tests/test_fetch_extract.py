@@ -131,6 +131,25 @@ class TestSourceFetcher:
         with pytest.raises(FetchError):
             fetcher.fetch(req)
 
+    def test_fetch_failure_emits_tool_call(self, fake_tool_call_logger):
+        records, logger = fake_tool_call_logger
+        transport = httpx.MockTransport(
+            lambda req: httpx.Response(403, request=req)
+        )
+        client = httpx.Client(transport=transport)
+        fetcher = SourceFetcher(client=client, tool_call_logger=logger)
+        req = FetchRequest(url="https://example.com")
+        with pytest.raises(FetchError):
+            fetcher.fetch(req, trace_id="trace_fetch_fail", task="collect")
+
+        operations = [(record.operation, record.status) for record in records]
+        assert ("fetch", "started") in operations
+        assert ("fetch", "failed") in operations
+        failed = [record for record in records if record.operation == "fetch" and record.status == "failed"][0]
+        assert failed.trace_id == "trace_fetch_fail"
+        assert failed.error_type == "HTTPStatusError"
+        assert failed.metrics["http_status"] == 403
+
     def test_extract_html_content(self, fetch_client):
         fetcher = SourceFetcher(client=fetch_client)
         req = FetchRequest(url="https://example.com")
