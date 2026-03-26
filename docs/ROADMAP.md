@@ -12,9 +12,13 @@ See `REQUIREMENTS.md` for capabilities inventory and success criteria.
 **v0.1 (shipped):** Basic pipeline works. Search (Brave/SearxNG) → Fetch (httpx) →
 Extract (trafilatura) → Provenance. Pydantic contracts, caching, optional Playwright.
 
-**What's broken:** Fetch has no error classification. Every HTTP error is a generic
-`FetchError`. Consumers retry 403s (paywalled sites) 3x with backoff, wasting ~30s
-per blocked URL. research_v3's investigation loop times out on a single question.
+**v0.2 (shipped, 2026-03-25):** Resilient fetch. `FetchError.retryable` classifies
+HTTP errors. Blocked domains skip immediately. Consumer (research_v3 loop.py) checks
+`retryable` before retrying. Plan #01 complete, 79 tests pass.
+
+**What's next:** The library can run single questions but isn't production-ready for
+sustained autonomous operation — no rate limiting, no Retry-After respect, no fetch
+metrics, no robots.txt.
 
 ---
 
