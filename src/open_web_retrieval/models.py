@@ -11,6 +11,9 @@ from typing import Sequence
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+# Module-level constant for user-agent default. Kept in sync with __version__ in __init__.py.
+_DEFAULT_USER_AGENT = "open_web_retrieval/0.6.0"
+
 
 
 
@@ -25,7 +28,7 @@ class FetchMetrics:
     failed: int = 0
     total_wait_seconds: float = 0.0
     escalated: int = 0
-    auto_rendered: int = 0  # SPA detection → Playwright re-fetch  # anti-bot escalation attempts
+    auto_rendered: int = 0  # SPA detection → Playwright re-fetch
 
 ProviderName = Literal["brave", "searxng"]
 RenderMode = Literal["never", "auto", "always"]
@@ -81,7 +84,7 @@ class FetchRequest(BaseModel):
 
     url: str
     render_mode: RenderMode = "auto"
-    user_agent_profile: str = "open_web_retrieval/0.4"
+    user_agent_profile: str = _DEFAULT_USER_AGENT
     max_bytes: int = Field(default=8_000_000, ge=1, le=50_000_000)
 
     model_config = ConfigDict(frozen=True)

@@ -266,15 +266,17 @@ class OpenWebRetrievalClient:
     ) -> SourceRecordBatch:
         """Execute search + fetch + extract for a deterministic output batch."""
         hits = self.search(query, trace_id=trace_id, task=task)
-        request = fetch_request or FetchRequest(url="")
+        # Use provided fetch_request as a template for render_mode, user_agent, max_bytes.
+        # Only those fields are used — the URL comes from each search hit.
+        template = fetch_request
         records: list[SourceRecord] = []
 
         for hit in hits:
             per_hit_fetch = FetchRequest(
                 url=hit.url,
-                render_mode=request.render_mode,
-                user_agent_profile=request.user_agent_profile,
-                max_bytes=request.max_bytes,
+                render_mode=template.render_mode if template else "auto",
+                user_agent_profile=template.user_agent_profile if template else FetchRequest.model_fields["user_agent_profile"].default,
+                max_bytes=template.max_bytes if template else 8_000_000,
             )
             try:
                 # Check fetch cache by URL

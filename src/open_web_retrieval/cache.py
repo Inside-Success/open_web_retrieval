@@ -92,14 +92,14 @@ class DiskCache:
     def get(self, key: str) -> Any | None:
         """Return cached value if present and not expired, else None."""
         path = self._key_path(key)
-        if not path.exists():
-            self._misses += 1
-            logger.debug("CACHE_MISS key=%s", key[:40])
-            return None
 
         with _file_lock(path):
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
+            except FileNotFoundError:
+                self._misses += 1
+                logger.debug("CACHE_MISS key=%s", key[:40])
+                return None
             except (json.JSONDecodeError, OSError):
                 self._misses += 1
                 logger.debug("CACHE_MISS key=%s (read error)", key[:40])

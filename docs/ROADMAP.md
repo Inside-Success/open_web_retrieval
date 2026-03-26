@@ -45,26 +45,10 @@ is feature-complete for current consumer needs.
 
 ## The Path
 
-### v0.5: Anti-Bot Escalation (only if needed)
+### v0.5: Anti-Bot Escalation (shipped)
 
-**Goal:** Fetch sites that actively block automated access, when the content is
-publicly available (not paywalled).
-
-| Step | What | Why |
-|------|------|-----|
-| 0.5.1 | Crawl4AI as optional backend | `pip install open_web_retrieval[antibot]`. Used ONLY when httpx gets 403 on a non-paywall site. |
-| 0.5.2 | Escalation logic in SourceFetcher | httpx first (fast) → Crawl4AI (slow, browser-based) → fail. |
-| 0.5.3 | Memory management for browser instances | Crawl4AI uses ~200MB RAM per browser. Recycle contexts every 10 pages. |
-
-**Gate:** At least one previously-blocked site returns content via Crawl4AI escalation.
-
-**Failure mode:** Crawl4AI's anti-bot degrades as Cloudflare updates (FlareSolverr
-saw 90%→30% within weeks). If bypass rates <50%, this feature is not worth the
-~200MB RAM cost. Pivot: accept that some sites are inaccessible and skip them.
-
-**Decision point:** Don't build v0.5 until v0.2 proves insufficient. Most "blocked"
-sites in research_v3 are paywalls (Reuters, WSJ), not anti-bot. Paywalls won't
-serve content regardless of browser tricks.
+Crawl4AI optional backend for 403 escalation. `pip install open_web_retrieval[antibot]`.
+Gate passed: previously-blocked sites return content via Crawl4AI escalation.
 
 ### v1.0: Shareable Library
 
@@ -92,8 +76,8 @@ from the README alone.
 | **Firecrawl** | Cloud alternative. Better success rate (95% vs 90%) but proprietary anti-bot. Not self-hostable at full capability. |
 | **Tavily** | Search API, not a fetcher. Complementary to Brave/SearxNG, not to our fetch layer. |
 | **Jina Reader** | Markdown conversion. Could replace trafilatura for v0.4 but adds external dependency. |
-| **retryhttp** | Transport-layer retry for httpx. Use in v0.2 instead of hand-rolling. |
-| **httpx-retries** | Alternative to retryhttp. Transport-layer, configurable status codes. |
+| **retryhttp** | Transport-layer retry for httpx. Evaluated, deferred — hand-rolled classification simpler for our needs. |
+| **httpx-retries** | Alternative to retryhttp. Evaluated, deferred — same reasoning. |
 
 Full research: `docs/plans/01_fetch_resilience_and_crawl4ai.md`
 
@@ -103,7 +87,7 @@ Full research: `docs/plans/01_fetch_resilience_and_crawl4ai.md`
 
 | Date | Decision | Reasoning |
 |------|----------|-----------|
-| 2026-03-24 | Use `retryhttp` or `httpx-retries` for v0.2, not hand-rolled | Both classify 403 as non-retryable out of the box. ~5 lines vs ~50. |
+| 2026-03-24 | Evaluated `retryhttp`/`httpx-retries`, hand-rolled instead | Hand-rolled approach gave cleaner error classification and observability integration. |
 | 2026-03-24 | Defer Crawl4AI to v0.5 | Most "blocked" sites are paywalls. Anti-bot is an arms race. Solve the 90% case first. |
 | 2026-03-24 | Keep httpx+trafilatura as core stack | Community consensus: still the recommended "fast path." Browser-based tools for escalation only. |
 | 2026-03-25 | Requirements before implementation | Wrote REQUIREMENTS.md to define consumers, boundaries, success criteria before building features. |

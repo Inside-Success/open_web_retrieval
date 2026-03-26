@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 
 import httpx
 
+from open_web_retrieval import __version__
 from open_web_retrieval.exceptions import FetchError
 from open_web_retrieval.fetch_extract import (
     KNOWN_BLOCKED_DOMAINS,
@@ -51,7 +52,7 @@ class AsyncSourceFetcher:
         self,
         *,
         timeout_seconds: float | None = None,
-        user_agent_profile: str = "open_web_retrieval/0.4",
+        user_agent_profile: str = f"open_web_retrieval/{__version__}",
         client: httpx.AsyncClient | None = None,
         blocked_domains: set[str] | None = None,
         rate_limit_per_second: float = 2.0,
@@ -78,7 +79,7 @@ class AsyncSourceFetcher:
         self.client = client or httpx.AsyncClient(timeout=timeout_seconds)
         self._owns_client = client is None
         self.user_agent_profile = user_agent_profile
-        self._blocked_domains = (blocked_domains or set()) | KNOWN_BLOCKED_DOMAINS
+        self._blocked_domains = blocked_domains if blocked_domains is not None else KNOWN_BLOCKED_DOMAINS
         self._rate_limit = rate_limit_per_second
         self._last_request: dict[str, float] = {}  # domain -> monotonic timestamp
         self.metrics = FetchMetrics()

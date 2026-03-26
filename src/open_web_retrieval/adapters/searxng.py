@@ -65,16 +65,22 @@ class SearxNGSearchAdapter(SearchAdapter):
                 "SearxNG request timed out",
                 context={"provider": self.provider_name, "query": query.query},
             ) from exc
+        except httpx.HTTPStatusError as exc:
+            raise RetrievalError(
+                f"SearxNG request failed (HTTP {exc.response.status_code})",
+                context={
+                    "provider": self.provider_name,
+                    "query": query.query,
+                    "status_code": exc.response.status_code,
+                    "status_message": str(exc),
+                },
+            ) from exc
         except httpx.HTTPError as exc:
-            status_code = None
-            if exc.response is not None and hasattr(exc.response, "status_code"):
-                status_code = exc.response.status_code
             raise RetrievalError(
                 "SearxNG request failed",
                 context={
                     "provider": self.provider_name,
                     "query": query.query,
-                    "status_code": status_code,
                     "status_message": str(exc),
                 },
             ) from exc

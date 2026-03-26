@@ -56,3 +56,10 @@ Workflow: `.github/workflows/test.yml`
 - Keep `AGENTS.md` as a generated mirror.
 - Do not keep implementation shortcuts that silently alter contract behavior.
 - Do not merge local-product UI concerns into this substrate.
+
+## Observability
+
+Both clients accept `tool_call_logger: ToolCallLogger | None` for structured
+tool-call logging. The protocol is defined in `observability.py`. Compatible with
+`llm_client`'s tool-call logger at runtime (same callable interface). See README
+for usage examples.

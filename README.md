@@ -194,12 +194,36 @@ An end-to-end integration test script validates the library against real URLs:
 
 ```bash
 # Run from repo root
-python tests/fixtures/e2e_test.py
+python scripts/e2e_test.py
 ```
 
 The script fetches diverse real URLs (cooperative sites, SPAs, government sites)
 and validates output quality. Results are saved to `tests/fixtures/e2e_results.json`
 for regression tracking.
+
+## Observability: tool_call_logger
+
+Both sync and async clients accept an optional `tool_call_logger` parameter for
+structured observability. When provided, every search, fetch, and extract operation
+emits a tool-call record (start, success/failure, duration, metrics).
+
+```python
+from open_web_retrieval.client import OpenWebRetrievalClient
+
+# Any callable(record: dict) -> None works as a logger
+def my_logger(record: dict) -> None:
+    print(record)
+
+client = OpenWebRetrievalClient(
+    brave_api_key="your-key",
+    tool_call_logger=my_logger,
+)
+```
+
+**Runtime dependency:** The logger protocol is defined in
+`open_web_retrieval.observability.ToolCallLogger` (a `Protocol` — any callable
+matching the signature works). If you use `llm_client`'s tool-call logger, pass
+it directly — the interface is compatible.
 
 ## Documentation
 

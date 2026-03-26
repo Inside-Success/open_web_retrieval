@@ -21,6 +21,8 @@ from open_web_retrieval.models import (
     FetchRequest,
     FetchedResource,
 )
+from open_web_retrieval import __version__
+
 from open_web_retrieval.observability import (
     ToolCallLogger,
     duration_ms,
@@ -145,6 +147,7 @@ def _extract_with_trafilatura(html_text: str, url: str | None = None) -> tuple[s
     try:
         from trafilatura import bare_extraction, extract
     except ModuleNotFoundError:
+        logger.info("trafilatura not installed — extraction will use fallback. Install with: pip install open_web_retrieval[extract]")
         return ("", "", {})
 
     try:
@@ -362,7 +365,7 @@ class SourceFetcher:
         self,
         *,
         timeout_seconds: float | None = None,
-        user_agent_profile: str = "open_web_retrieval/0.4",
+        user_agent_profile: str = f"open_web_retrieval/{__version__}",
         client: httpx.Client | None = None,
         blocked_domains: set[str] | None = None,
         rate_limit_per_second: float = 2.0,
@@ -393,7 +396,7 @@ class SourceFetcher:
         self.client = client or httpx.Client(timeout=timeout_seconds)
         self._owns_client = client is None
         self.user_agent_profile = user_agent_profile
-        self._blocked_domains = (blocked_domains or set()) | KNOWN_BLOCKED_DOMAINS
+        self._blocked_domains = blocked_domains if blocked_domains is not None else KNOWN_BLOCKED_DOMAINS
         self._rate_limit = rate_limit_per_second
         self._last_request: dict[str, float] = {}  # domain -> monotonic timestamp
         self.metrics = FetchMetrics()

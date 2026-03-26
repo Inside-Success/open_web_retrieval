@@ -108,20 +108,9 @@ The library fails if:
 
 ---
 
-## Priority Order (what to build next)
+## Priority Order
 
-Based on consumer needs and dependency chain:
-
-1. **HTTP error classification + retry** — #1 blocker. Use `retryhttp` or `httpx-retries`,
-   not hand-rolled. 403 = permanent (skip), 429 = backoff, 5xx = retry.
-2. **Known-blocked domain skip** — configurable set passed to SourceFetcher constructor.
-   Prevents even attempting paywalled sites.
-3. **Retry-After header respect** — on 429, wait the specified duration.
-4. **Rate limiting** — prevent overwhelming Brave API or target hosts.
-5. **Markdown output** — consumers (research_v3 loop, future agents) want markdown, not raw text.
-6. **Result dedup** — when using multiple search providers.
-
-Items 1-2 unblock research_v3 eval. Items 3-6 are quality-of-life.
+All priorities shipped as of v0.6. See ROADMAP.md for version history.
 
 ---
 
@@ -137,6 +126,5 @@ Items 1-2 unblock research_v3 eval. Items 3-6 are quality-of-life.
 ### This library does NOT own:
 - What to search for (consumer decides queries)
 - What to do with extracted text (consumer's LLM pipeline)
-- Anti-bot bypass (if needed, add Crawl4AI as optional dep — Phase 2 of Plan #1)
 - Domain-specific ranking or filtering (consumer layer)
 - Proxy management or rotation (out of scope for v0)

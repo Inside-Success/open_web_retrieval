@@ -1,5 +1,7 @@
 """open_web_retrieval package exports."""
 
+__version__ = "0.6.0"
+
 from open_web_retrieval.async_client import AsyncOpenWebRetrievalClient
 from open_web_retrieval.async_fetch import AsyncSourceFetcher
 from open_web_retrieval.cache import CacheStats, DiskCache
@@ -44,4 +46,5 @@ __all__ = [
     "SearchQuery",
     "SourceRecord",
     "SourceRecordBatch",
+    "__version__",
 ]
