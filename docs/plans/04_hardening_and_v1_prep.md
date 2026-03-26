@@ -1,6 +1,6 @@
 # Plan #04: Hardening and v1.0 Prep
 
-**Status:** Planned
+**Status:** Complete
 **Type:** maintenance + governance
 **Priority:** Medium
 **Blocked By:** Plans #01-03 (all complete)
@@ -87,16 +87,16 @@ Update pyproject.toml version field.
 
 ## Acceptance Criteria
 
-- [ ] Brave 401 error says "invalid API key"
-- [ ] py.typed marker exists
-- [ ] trafilatura version pinned with upper bound
-- [ ] pyproject.toml version = 0.4.0
-- [ ] README documents all v0.2-v0.4 features with code examples
-- [ ] GitHub Actions workflow runs tests on push
-- [ ] ROADMAP reflects current state
-- [ ] CLAUDE.md reflects current state
-- [ ] All 98+ tests pass
-- [ ] `git push` triggers CI (verify)
+- [x] Brave 401 error says "invalid API key"
+- [x] py.typed marker exists
+- [x] trafilatura version pinned with upper bound
+- [x] pyproject.toml version = 0.4.0
+- [x] README documents all v0.2-v0.4 features with code examples
+- [x] GitHub Actions workflow runs tests on push
+- [x] ROADMAP reflects current state
+- [x] CLAUDE.md reflects current state
+- [x] All 98+ tests pass
+- [ ] `git push` triggers CI (verify after push)
 
 ---
 
