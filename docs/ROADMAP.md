@@ -1,7 +1,7 @@
 # open_web_retrieval — Roadmap
 
 **Status**: Active
-**Last updated**: 2026-03-25
+**Last updated**: 2026-03-26
 
 See `REQUIREMENTS.md` for capabilities inventory and success criteria.
 
@@ -31,6 +31,12 @@ examples. CI via GitHub Actions (py3.10, py3.12). Plan #04 complete.
 **v0.5 (shipped, 2026-03-25):** Crawl4AI anti-bot escalation. Optional `[antibot]` dep.
 `enable_antibot=True` triggers browser-based fetch on HTTP 403. Escalation is not a
 retry — it's a different mechanism. Plan #05 complete, 106 tests.
+
+
+**v0.6 (shipped, 2026-03-26):** Enhanced SPA detection (framework mount points,
+noscript detection, embedded JSON extraction), context manager protocol, cache
+hardening (file locking, LRU eviction, stats), async support (AsyncSourceFetcher,
+AsyncOpenWebRetrievalClient), integration test suite. Plan #06 complete, 143 tests.
 
 **What's next:** v1.0 (shareable library) is gated on ROADMAP Phase 4. The library
 is feature-complete for current consumer needs.

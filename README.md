@@ -103,6 +103,104 @@ client = OpenWebRetrievalClient(
 )
 ```
 
+
+## Async Usage
+
+For async workflows (e.g., inside an async web server or agent loop):
+
+```python
+import asyncio
+from open_web_retrieval.async_client import AsyncOpenWebRetrievalClient
+from open_web_retrieval.models import SearchQuery
+
+async def main():
+    async with AsyncOpenWebRetrievalClient(brave_api_key="your-key") as client:
+        query = SearchQuery(query="async Python best practices", providers=["brave"], top_k=5)
+        hits = await client.search(query)
+        for hit in hits:
+            print(f"{hit.rank}. {hit.title}")
+
+asyncio.run(main())
+```
+
+Or use `AsyncSourceFetcher` directly:
+
+```python
+from open_web_retrieval.async_fetch import AsyncSourceFetcher
+from open_web_retrieval.models import FetchRequest
+
+async with AsyncSourceFetcher() as fetcher:
+    result = await fetcher.fetch(FetchRequest(url="https://example.com"))
+    print(result.content[:200])
+```
+
+## Context Managers
+
+Both the sync and async clients support the context manager protocol for
+clean resource management:
+
+```python
+# Sync
+from open_web_retrieval.client import OpenWebRetrievalClient
+
+with OpenWebRetrievalClient(brave_api_key="your-key") as client:
+    hits = client.search(query)
+# Resources cleaned up automatically
+
+# Async
+from open_web_retrieval.async_client import AsyncOpenWebRetrievalClient
+
+async with AsyncOpenWebRetrievalClient(brave_api_key="your-key") as client:
+    hits = await client.search(query)
+```
+
+## SPA Detection
+
+The library auto-detects single-page applications (React, Vue, Angular, Next.js,
+Nuxt) and handles them appropriately:
+
+- **Framework mount points**: Detects empty `<div id="root">`, `<div id="app">`, etc.
+- **Noscript tags**: Detects "enable JavaScript" messages in `<noscript>` elements.
+- **Embedded JSON**: Extracts data from `__NEXT_DATA__` and `__NUXT__` script tags
+  without needing a browser.
+
+When SPA content is detected and Playwright is available (`[render]` extra),
+the library automatically escalates to browser-based rendering.
+
+## Cache Configuration
+
+The disk cache supports max entry limits with LRU eviction and usage stats:
+
+```python
+from open_web_retrieval.cache import DiskCache
+
+cache = DiskCache(
+    cache_dir="/tmp/owr_cache",
+    ttl_seconds=3600,       # Entries expire after 1 hour
+    max_entries=1000,        # LRU eviction when exceeded
+)
+
+# Check cache stats
+stats = cache.stats()
+print(f"Entries: {stats['entries']}, Size: {stats['size_bytes']} bytes")
+print(f"Hit rate: {stats.get('hit_rate', 0):.1%}")
+```
+
+File locking prevents corruption under concurrent access.
+
+## Integration Tests
+
+An end-to-end integration test script validates the library against real URLs:
+
+```bash
+# Run from repo root
+python tests/fixtures/e2e_test.py
+```
+
+The script fetches diverse real URLs (cooperative sites, SPAs, government sites)
+and validates output quality. Results are saved to `tests/fixtures/e2e_results.json`
+for regression tracking.
+
 ## Documentation
 
 - [REQUIREMENTS.md](docs/REQUIREMENTS.md) — what the library does and doesn't do

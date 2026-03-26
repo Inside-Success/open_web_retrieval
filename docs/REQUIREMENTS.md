@@ -1,7 +1,7 @@
 # open_web_retrieval — Requirements
 
 **Status**: Active
-**Last updated**: 2026-03-25
+**Last updated**: 2026-03-26
 **Owner**: Brian Mills
 
 ---
@@ -33,7 +33,7 @@ and configurable resilience. It's shared infrastructure per the root CLAUDE.md:
 
 ---
 
-## Capabilities (current v0 + planned)
+## Capabilities (current v0.6)
 
 ### Search — find URLs for a query
 
@@ -60,7 +60,9 @@ and configurable resilience. It's shared infrastructure per the root CLAUDE.md:
 | **Known-blocked domain skip** | **Shipped** | `blocked_domains` param on SourceFetcher (v0.2) |
 | **Respect Retry-After header** | **Shipped** | Integer seconds and HTTP-date (v0.3) |
 | Rate limiting (requests/second) | **Shipped** | Per-domain, default 2 req/s (v0.3) |
-| Robots.txt respect | **Not started** | Deferred to v0.5+ |
+| Anti-bot escalation (Crawl4AI) | **Shipped** | Optional `[antibot]` dep, triggers on 403 (v0.5) |
+| SPA detection & auto-render | **Shipped** | Framework mount points, noscript detection, embedded JSON extraction (v0.6) |
+| Robots.txt respect | **Not started** | Deferred to v1.0+ |
 
 ### Extract — turn HTML into clean text
 
@@ -79,6 +81,10 @@ and configurable resilience. It's shared infrastructure per the root CLAUDE.md:
 | Provenance on every operation | **Shipped** | Provider, URL, method, timestamps |
 | Pydantic models for all contracts | **Shipped** | Frozen, validated |
 | pip-installable | **Shipped** | `pip install -e ~/projects/open_web_retrieval` |
+| Context manager protocol | **Shipped** | `with SourceFetcher() as f:` and `with OpenWebRetrievalClient() as c:` (v0.6) |
+| Async support | **Shipped** | `AsyncSourceFetcher`, `AsyncOpenWebRetrievalClient` (v0.6) |
+| Cache hardening | **Shipped** | File locking, LRU eviction, `max_entries`, cache stats (v0.6) |
+| Integration test suite | **Shipped** | E2E test script for diverse real URLs (v0.6) |
 
 ---
 

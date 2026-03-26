@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "open-web-retrieval"
-version = "0.4.0"
+version = "0.6.0"
 description = "Shared open-web retrieval substrate for search, fetch, and extraction."
 requires-python = ">=3.10"
 dependencies = [
@@ -17,6 +17,7 @@ extract = ["trafilatura>=1.12,<3"]
 render = ["playwright>=1.45"]
 antibot = ["crawl4ai"]
 all = ["trafilatura>=1.12,<3", "playwright>=1.45", "crawl4ai"]
+test = ["pytest-asyncio>=0.23"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -25,3 +26,4 @@ include = ["open_web_retrieval*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
