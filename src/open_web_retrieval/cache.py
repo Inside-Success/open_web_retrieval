@@ -9,9 +9,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import time
 from pathlib import Path
 from typing import Any
+
+
+logger = logging.getLogger(__name__)
 
 
 class DiskCache:
@@ -40,21 +44,26 @@ class DiskCache:
         """Return cached value if present and not expired, else None."""
         path = self._key_path(key)
         if not path.exists():
+            logger.debug("CACHE_MISS key=%s", key[:40])
             return None
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
+            logger.debug("CACHE_MISS key=%s", key[:40])
             return None
 
         stored_at = data.get("stored_at", 0)
         ttl = data.get("ttl", self.default_ttl_seconds)
         if time.time() - stored_at > ttl:
             path.unlink(missing_ok=True)
+            logger.debug("CACHE_MISS key=%s", key[:40])
             return None
+        logger.debug("CACHE_HIT key=%s", key[:40])
         return data.get("value")
 
     def set(self, key: str, value: Any, *, ttl: int | None = None) -> None:
         """Store a JSON-serializable value with TTL."""
+        logger.debug("CACHE_SET key=%s", key[:40])
         path = self._key_path(key)
         envelope = {
             "key": key,

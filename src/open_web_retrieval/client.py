@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -24,6 +25,9 @@ from open_web_retrieval.observability import (
     query_sha256,
     utc_now_iso,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -118,6 +122,8 @@ class OpenWebRetrievalClient:
                 context={"query": query.query},
             )
 
+        logger.info("SEARCH query=%r providers=%s", query.query, ",".join(providers))
+
         combined_hits: list[SearchHit] = []
         missing: list[str] = []
         failures: list[str] = []
@@ -128,6 +134,7 @@ class OpenWebRetrievalClient:
                 cache_key = self._search_cache_key(query, provider)
                 cached = self._search_cache.get(cache_key)
                 if cached is not None:
+                    logger.debug("SEARCH_CACHE_HIT provider=%s query=%r", provider, query.query)
                     combined_hits.extend(SearchHit(**h) for h in cached)
                     continue
 
@@ -220,7 +227,9 @@ class OpenWebRetrievalClient:
             if hit.url not in seen_urls:
                 seen_urls.add(hit.url)
                 deduped.append(hit)
-        return deduped[: query.top_k]
+        result = deduped[: query.top_k]
+        logger.info("SEARCH_RESULT query=%r hits=%d providers=%s", query.query, len(result), ",".join(providers))
+        return result
 
     def retrieve(
         self,

@@ -266,6 +266,7 @@ class SourceFetcher:
             elapsed = now - self._last_request[domain]
             wait = max(0.0, min_interval - elapsed)
             if wait > 0:
+                logger.debug("RATE_LIMIT domain=%s wait=%.2fs", domain, wait)
                 time.sleep(wait)
                 self.metrics.total_wait_seconds += wait
         self._last_request[domain] = time.monotonic()
@@ -347,6 +348,7 @@ class SourceFetcher:
             metrics=base_metrics,
         )
         if domain in self._blocked_domains:
+            logger.info("SKIP blocked domain=%s url=%s", domain, request.url)
             self.metrics.skipped_blocked += 1
             emit_tool_call(
                 self.tool_call_logger,
@@ -383,6 +385,7 @@ class SourceFetcher:
                 response = self.client.get(request.url, headers=headers, follow_redirects=True)
                 response.raise_for_status()
         except httpx.TimeoutException as exc:
+            logger.info("FETCH_TIMEOUT url=%s", request.url)
             self.metrics.failed += 1
             emit_tool_call(
                 self.tool_call_logger,
@@ -430,6 +433,7 @@ class SourceFetcher:
                 # Respect Retry-After header and retry once.
                 retry_after_header = exc.response.headers.get("Retry-After")
                 wait = _parse_retry_after(retry_after_header) if retry_after_header else _DEFAULT_RETRY_AFTER_SECONDS
+                logger.info("RATE_LIMITED url=%s retry_after=%.1fs", request.url, wait)
                 self.metrics.total_wait_seconds += wait
                 time.sleep(wait)
                 self.metrics.retried += 1
@@ -505,15 +509,19 @@ class SourceFetcher:
                     try:
                         logger.info("Escalating to crawl4ai for anti-bot: %s", request.url)
                         self.metrics.escalated += 1
-                        return self._crawl4ai_fetch(request.url)
+                        resource = self._crawl4ai_fetch(request.url)
+                        logger.info("FETCH_ESCALATED url=%s method=crawl4ai", request.url)
+                        return resource
                     except Exception as antibot_exc:
                         logger.warning("crawl4ai escalation failed: %s", antibot_exc)
                         # Fall through to raise original FetchError
 
                 retryable = exc.response.status_code not in NON_RETRYABLE_STATUS
                 if retryable:
+                    logger.info("FETCH_FAILED_RETRYABLE status=%d url=%s", exc.response.status_code, request.url)
                     self.metrics.failed += 1
                 else:
+                    logger.info("SKIP_PERMANENT status=%d url=%s", exc.response.status_code, request.url)
                     self.metrics.skipped_permanent += 1
                 emit_tool_call(
                     self.tool_call_logger,
@@ -568,6 +576,7 @@ class SourceFetcher:
         if len(content) > request.max_bytes:
             content = content[: request.max_bytes]
         self.metrics.fetched += 1
+        logger.info("FETCH status=%d url=%s method=%s bytes=%d", response.status_code, request.url, "playwright" if request.render_mode == "always" else "httpx", len(content))
         emit_tool_call(
             self.tool_call_logger,
             call_id=call_id,
@@ -674,6 +683,14 @@ class SourceFetcher:
             document_type="html" if "html" in (resource.content_type or "").lower() else "unknown",
             extraction_method=method_used,
             warnings=warnings,
+        )
+        logger.debug(
+            "EXTRACT url=%s method=%s title=%s markdown_len=%d text_len=%d",
+            resource.requested_url,
+            method_used,
+            document.title,
+            len(document.markdown),
+            len(document.text),
         )
         emit_tool_call(
             self.tool_call_logger,
