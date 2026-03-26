@@ -5,13 +5,6 @@
 
 This repo is the shared open-web retrieval boundary.
 
-## ACTIVE AUTONOMOUS EXECUTION
-
-**This repo is under autonomous 24-hour execution.** An agent is working through
-the phases below without stopping. Log uncertainties and continue. Do not stop
-to ask questions — make the best decision and document it. Commit at every verified
-milestone. If a phase fails after 3 attempts, log the failure and move to the next phase.
-
 ## Purpose
 
 - Search: Brave and SearxNG adapters in a normalized contract.
