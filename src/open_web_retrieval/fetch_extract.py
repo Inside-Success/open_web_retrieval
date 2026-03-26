@@ -63,6 +63,12 @@ def _hash_bytes(payload: bytes) -> str:
     return digest.hexdigest()
 
 
+def _domain_from_url(url: str) -> str:
+    """Return a normalized domain label for compact diagnostics."""
+
+    return urlparse(url).netloc.removeprefix("www.")
+
+
 def _decode_text(payload: bytes) -> str:
     """Decode bytes using tolerant UTF-8 fallback to preserve content."""
     return payload.decode("utf-8", errors="replace")
@@ -337,6 +343,22 @@ def _extract_text(
     return text or "", markdown, metadata, used, warnings
 
 
+def _diagnostic_fallback_path(
+    *,
+    fetch_method: str,
+    extraction_method: str,
+) -> str:
+    """Return one compact path label for fetch/extract diagnostics."""
+
+    if fetch_method == "crawl4ai":
+        return "antibot_crawl4ai"
+    if fetch_method == "render_playwright" or extraction_method.endswith("+render"):
+        return "spa_render_playwright"
+    if extraction_method == "embedded_json":
+        return "embedded_json"
+    return "primary"
+
+
 def _run_async(coro):
     """Run an async coroutine from sync code, handling already-running event loops.
 
@@ -550,7 +572,7 @@ class SourceFetcher:
         started_monotonic = time.monotonic() if self.tool_call_logger is not None else None
 
         # Check blocked domains before making any network request.
-        domain = urlparse(request.url).netloc.removeprefix("www.")
+        domain = _domain_from_url(request.url)
         base_metrics = {
             "domain": domain,
             "render_mode": request.render_mode,
@@ -829,6 +851,7 @@ class SourceFetcher:
             content = content[: request.max_bytes]
         self.metrics.fetched += 1
         logger.info("FETCH status=%d url=%s method=%s bytes=%d", response.status_code, request.url, "playwright" if request.render_mode == "always" else "httpx", len(content))
+        final_fetch_method = "render_playwright" if request.render_mode == "always" else "httpx"
         emit_tool_call(
             self.tool_call_logger,
             call_id=call_id,
@@ -849,6 +872,8 @@ class SourceFetcher:
                 "content_type": response.headers.get("content-type"),
                 "byte_count": len(content),
                 "final_url": str(response.url),
+                "fetch_method": final_fetch_method,
+                "fallback_path": "primary" if final_fetch_method == "httpx" else "spa_render_playwright",
             },
         )
         return FetchedResource(
@@ -858,7 +883,7 @@ class SourceFetcher:
             content_type=response.headers.get("content-type"),
             content_bytes=content,
             retrieved_at_utc=_utc_now(),
-            fetch_method="httpx",
+            fetch_method=final_fetch_method,
             sha256=_hash_bytes(content),
         )
 
@@ -1044,7 +1069,13 @@ class SourceFetcher:
             task=task,
             trace_id=trace_id,
             metrics={
+                "domain": _domain_from_url(resource.requested_url),
                 "document_type": document.document_type,
+                "source_fetch_method": resource.fetch_method,
+                "fallback_path": _diagnostic_fallback_path(
+                    fetch_method=resource.fetch_method,
+                    extraction_method=document.extraction_method,
+                ),
                 "text_chars": len(document.text),
                 "markdown_chars": len(document.markdown),
                 "warning_count": len(document.warnings),

@@ -165,6 +165,24 @@ class TestSourceFetcher:
         assert "<html>" not in doc.text
         assert "<p>" not in doc.text
 
+    def test_extract_emits_diagnostic_metrics(self, fake_tool_call_logger, fetch_client):
+        """Extract tool-call rows should expose compact diagnostic dimensions."""
+        records, logger = fake_tool_call_logger
+        fetcher = SourceFetcher(client=fetch_client, rate_limit_per_second=0, tool_call_logger=logger)
+        resource = fetcher.fetch(
+            FetchRequest(url="https://example.com/article"),
+            trace_id="trace_extract_diag",
+            task="collect",
+        )
+        fetcher.extract(resource, trace_id="trace_extract_diag", task="collect")
+
+        extract_records = [record for record in records if record.operation == "extract" and record.status == "succeeded"]
+        assert len(extract_records) == 1
+        metrics = extract_records[0].metrics
+        assert metrics["domain"] == "example.com"
+        assert metrics["source_fetch_method"] == "httpx"
+        assert metrics["fallback_path"] == "primary"
+
     def test_extract_preserves_provenance(self, fetch_client):
         fetcher = SourceFetcher(client=fetch_client)
         req = FetchRequest(url="https://example.com/article")
@@ -822,6 +840,8 @@ shell or single-page application bootstrap.</p>
         assert fetch_records, "expected auto-render fetch records"
         assert all(record.trace_id == "trace_spa_render" for record in fetch_records)
         assert all(record.task == "collect" for record in fetch_records)
+        extract_success = [record for record in records if record.operation == "extract" and record.status == "succeeded"][-1]
+        assert extract_success.metrics["fallback_path"] == "spa_render_playwright"
 
     def test_auto_render_disabled(self):
         """SPA detection does not fire when enable_auto_render=False."""

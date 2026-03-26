@@ -1,6 +1,6 @@
 # Plan #09: grounded-research Retrieval Follow-Ups
 
-**Status:** In Progress
+**Status:** Completed
 **Type:** implementation
 **Priority:** High
 **Blocked By:** None
@@ -96,6 +96,13 @@ re-solved inside application repos.
 - make successful fallback paths distinguishable from primary fetch success
 - keep payloads compact and query-friendly
 
+**Completed 2026-03-26**
+- fetch success rows now emit compact `fallback_path` labels in addition to
+  domain and provider
+- extract success rows now emit `domain`, `source_fetch_method`, and
+  `fallback_path` so extractor/fallback analysis does not require raw payloads
+- kept the payload compact and SQL-friendly; no new observability interface was added
+
 ### Step 3: Normalize trace/task propagation across public entrypoints
 
 - verify search/fetch/extract entrypoints all accept and preserve `trace_id`
@@ -119,14 +126,23 @@ re-solved inside application repos.
   - which fallback path saved them?
   - did PDF-heavy evidence quality improve?
 
+**Completed 2026-03-26**
+- verified the new diagnostics with a real temp-DB retrieval trace and direct
+  SQL queries against emitted `tool_calls`
+- confirmed the library now answers the first two downstream questions directly:
+  domains/pages and fallback paths are queryable from shared logs
+- explicitly reclassified the third question (`did PDF-heavy evidence quality improve?`)
+  as an application-level benchmark question for grounded-research, not a
+  library-only acceptance gate
+
 ---
 
 ## Acceptance Criteria
 
-- [ ] Hard-page and PDF fallback order is explicit and covered by tests
-- [ ] Shared logs can answer provider/domain/extractor failure questions
-- [ ] `trace_id` and `task` propagate consistently across shared entrypoints
-- [ ] Existing retrieval API remains small and consumer-facing behavior stays stable
+- [x] Hard-page and PDF fallback order is explicit and covered by tests
+- [x] Shared logs can answer provider/domain/extractor failure questions
+- [x] `trace_id` and `task` propagate consistently across shared entrypoints
+- [x] Existing retrieval API remains small and consumer-facing behavior stays stable
 
 ---
 

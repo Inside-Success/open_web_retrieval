@@ -241,3 +241,6 @@ async def test_async_extract_emits_trace_and_task(fake_tool_call_logger):
     assert extract_records
     assert all(record.trace_id == "trace_async_extract" for record in extract_records)
     assert all(record.task == "collect" for record in extract_records)
+    assert extract_records[-1].metrics["domain"] == "example.com"
+    assert extract_records[-1].metrics["source_fetch_method"] == "httpx_async"
+    assert extract_records[-1].metrics["fallback_path"] == "primary"

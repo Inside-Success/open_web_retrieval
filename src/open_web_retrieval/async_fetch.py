@@ -15,6 +15,8 @@ from open_web_retrieval.fetch_extract import (
     KNOWN_BLOCKED_DOMAINS,
     NON_RETRYABLE_STATUS,
     _DEFAULT_RETRY_AFTER_SECONDS,
+    _diagnostic_fallback_path,
+    _domain_from_url,
     _extract_embedded_json,
     _extract_text,
     _hash_bytes,
@@ -122,7 +124,7 @@ class AsyncSourceFetcher:
         started_monotonic = time.monotonic() if self.tool_call_logger is not None else None
 
         # Check blocked domains before any network request.
-        domain = urlparse(request.url).netloc.removeprefix("www.")
+        domain = _domain_from_url(request.url)
         base_metrics: dict = {
             "domain": domain,
             "render_mode": request.render_mode,
@@ -440,6 +442,8 @@ class AsyncSourceFetcher:
                 "content_type": response.headers.get("content-type"),
                 "byte_count": len(content),
                 "final_url": str(response.url),
+                "fetch_method": "httpx_async",
+                "fallback_path": "primary",
             },
         )
         return FetchedResource(
@@ -561,7 +565,13 @@ class AsyncSourceFetcher:
             task=task,
             trace_id=trace_id,
             metrics={
+                "domain": _domain_from_url(resource.requested_url),
                 "document_type": document.document_type,
+                "source_fetch_method": resource.fetch_method,
+                "fallback_path": _diagnostic_fallback_path(
+                    fetch_method=resource.fetch_method,
+                    extraction_method=document.extraction_method,
+                ),
                 "text_chars": len(document.text),
                 "markdown_chars": len(document.markdown),
                 "warning_count": len(document.warnings),
