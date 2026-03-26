@@ -12,10 +12,14 @@ from open_web_retrieval.models import (
 )
 from open_web_retrieval.exceptions import (
     CapabilityNotSupportedError,
+    FetchError,
     OpenWebRetrievalError,
     ProviderUnavailableError,
+    RenderError,
     RetrievalError,
 )
+from open_web_retrieval.fetch_extract import SourceFetcher
+from open_web_retrieval.models import FetchMetrics
 
 __all__ = [
     "DiskCache",
@@ -26,7 +30,11 @@ __all__ = [
     "OpenWebRetrievalClient",
     "OpenWebRetrievalError",
     "ProviderUnavailableError",
+    "FetchError",
+    "FetchMetrics",
+    "RenderError",
     "RetrievalError",
+    "SourceFetcher",
     "SearchHit",
     "SearchQuery",
     "SourceRecord",

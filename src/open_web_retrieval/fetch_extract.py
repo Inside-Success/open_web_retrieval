@@ -114,6 +114,9 @@ def _extract_with_trafilatura(html_text: str, url: str | None = None) -> tuple[s
 
     Returns (plain_text, markdown, metadata_dict). On failure or missing
     trafilatura, returns ("", "", {}).
+
+    Uses bare_extraction() for text + metadata (1 call) and extract() for
+    markdown (1 call) — 2 parses instead of 3.
     """
     try:
         from trafilatura import bare_extraction, extract
@@ -121,18 +124,13 @@ def _extract_with_trafilatura(html_text: str, url: str | None = None) -> tuple[s
         return ("", "", {})
 
     try:
-        # Get structured metadata via bare_extraction
+        # Call 1: bare_extraction for text + metadata (single parse)
         doc = bare_extraction(html_text, url=url, with_metadata=True)
 
-        # Get markdown content
-        md = extract(html_text, output_format="markdown", include_links=True,
-                     include_tables=True, url=url)
-
-        # Get plain text
-        txt = extract(html_text, output_format="txt", url=url)
-
+        txt = ""
         metadata: dict = {}
         if doc:
+            txt = doc.text or ""
             metadata = {
                 "title": doc.title,
                 "author": doc.author,
@@ -140,7 +138,11 @@ def _extract_with_trafilatura(html_text: str, url: str | None = None) -> tuple[s
                 "sitename": doc.sitename,
             }
 
-        return (txt or "", _strip_frontmatter(md) if md else "", metadata)
+        # Call 2: extract for markdown (separate parse — different output format)
+        md = extract(html_text, output_format="markdown", include_links=True,
+                     include_tables=True, url=url)
+
+        return (txt, _strip_frontmatter(md) if md else "", metadata)
     except Exception as exc:
         logger.warning("trafilatura extraction failed: %s", exc)
         return ("", "", {})
@@ -191,7 +193,7 @@ class SourceFetcher:
         self,
         *,
         timeout_seconds: float | None = None,
-        user_agent_profile: str = "open_web_retrieval/0.1",
+        user_agent_profile: str = "open_web_retrieval/0.4",
         client: httpx.Client | None = None,
         blocked_domains: set[str] | None = None,
         rate_limit_per_second: float = 2.0,

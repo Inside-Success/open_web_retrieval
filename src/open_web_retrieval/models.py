@@ -79,7 +79,7 @@ class FetchRequest(BaseModel):
 
     url: str
     render_mode: RenderMode = "auto"
-    user_agent_profile: str = "open_web_retrieval/0.1"
+    user_agent_profile: str = "open_web_retrieval/0.4"
     max_bytes: int = Field(default=8_000_000, ge=1, le=50_000_000)
 
     model_config = ConfigDict(frozen=True)
