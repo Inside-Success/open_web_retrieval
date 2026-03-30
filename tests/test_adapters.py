@@ -1,4 +1,4 @@
-"""Contract tests for search adapters — Brave and SearxNG."""
+"""Contract tests for search adapters."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import pytest
 
 from open_web_retrieval.adapters.brave import BraveSearchAdapter, _parse_published
 from open_web_retrieval.adapters.searxng import SearxNGSearchAdapter, _normalize_host
+from open_web_retrieval.adapters.tavily import TavilySearchAdapter
 from open_web_retrieval.exceptions import (
     OpenWebRetrievalError,
     ProviderUnavailableError,
@@ -110,6 +111,68 @@ class TestSearxNGAdapter:
         query = SearchQuery(query="test", providers=("searxng",), top_k=1)
         hits = searxng_adapter.search(query)
         assert hits[0].score_hint == 0.95
+
+
+class TestTavilyAdapter:
+    def test_search_returns_normalized_hits(self, tavily_adapter):
+        query = SearchQuery(query="test", providers=("tavily",), top_k=3)
+        hits = tavily_adapter.search(query)
+        assert len(hits) == 3
+        for hit in hits:
+            assert isinstance(hit, SearchHit)
+            assert hit.provider == "tavily"
+            assert hit.query == "test"
+            assert hit.url == "https://example.net/tavily"
+            assert hit.title == "Tavily Result"
+            assert hit.snippet == "Summarized content from Tavily."
+            assert hit.publisher == "example.net"
+            assert hit.score_hint == 0.88
+
+    def test_no_api_key_raises(self):
+        with pytest.raises(ProviderUnavailableError):
+            TavilySearchAdapter(api_key="")
+
+    def test_search_maps_domain_and_recency_filters(self):
+        import json
+
+        captured: dict[str, object] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            payload = json.loads(request.content.decode("utf-8"))
+            captured.update(payload)
+            return httpx.Response(
+                200,
+                json={
+                    "query": payload["query"],
+                    "answer": None,
+                    "follow_up_questions": [],
+                    "images": [],
+                    "request_id": "req_test",
+                    "response_time": 0.1,
+                    "results": [],
+                },
+                request=request,
+            )
+
+        adapter = TavilySearchAdapter(
+            api_key="key",
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+        query = SearchQuery(
+            query="test",
+            providers=("tavily",),
+            top_k=4,
+            recency_days=30,
+            domains_allow=("epa.gov",),
+            domains_deny=("wikipedia.org",),
+        )
+        hits = adapter.search(query)
+        assert hits == []
+        assert captured["search_depth"] == "advanced"
+        assert captured["max_results"] == 4
+        assert captured["include_domains"] == ["epa.gov"]
+        assert captured["exclude_domains"] == ["wikipedia.org"]
+        assert captured["days"] == 30
 
 
 class TestParsePublished:

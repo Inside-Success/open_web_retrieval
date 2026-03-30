@@ -31,12 +31,13 @@ from open_web_retrieval.models import SearchQuery
 
 client = OpenWebRetrievalClient(
     brave_api_key="your-key",
+    tavily_api_key="your-tavily-key",
     blocked_domains={"paywalled-site.com", "pinterest.com"},
     rate_limit_per_second=2.0,
 )
 
 # Search
-query = SearchQuery(query="Python web scraping best practices", providers=["brave"], top_k=5)
+query = SearchQuery(query="Python web scraping best practices", providers=["tavily"], top_k=5)
 hits = client.search(query)
 for hit in hits:
     print(f"{hit.rank}. {hit.title} — {hit.url}")
@@ -57,7 +58,7 @@ for record in batch.records:
 
 | Feature | Details |
 |---------|---------|
-| **Search** | Brave API, SearxNG. Normalized `SearchHit` contract. Dedup by URL across providers. |
+| **Search** | Brave API, SearxNG, Tavily. Normalized `SearchHit` contract. Dedup by URL across providers. |
 | **Fetch** | httpx with error classification. `FetchError.retryable` distinguishes "try again" from "give up." |
 | **Blocked domains** | Configurable set — rejected immediately without network request. |
 | **Rate limiting** | Per-domain (default 2 req/s). Respects `Retry-After` header on 429. |
@@ -95,6 +96,7 @@ Error codes: `OPEN_WEB_RETRIEVAL_PROVIDER_UNAVAILABLE`,
 client = OpenWebRetrievalClient(
     brave_api_key="...",                    # Brave API key
     searxng_base_url="http://localhost:8080",  # SearxNG instance
+    tavily_api_key="...",                  # Tavily API key
     blocked_domains={"pinterest.com"},      # Skip without fetching
     rate_limit_per_second=2.0,              # Per-domain rate limit
     cache_dir="/tmp/owr_cache",             # Enable disk caching
@@ -230,3 +232,21 @@ it directly — the interface is compatible.
 - [REQUIREMENTS.md](docs/REQUIREMENTS.md) — what the library does and doesn't do
 - [ROADMAP.md](docs/ROADMAP.md) — version history and future plans
 - [SOTA_RESEARCH.md](docs/SOTA_RESEARCH.md) — landscape analysis (Crawl4AI, Firecrawl, Tavily, etc.)
+
+## Tavily Notes
+
+Tavily search uses the same normalized search contract:
+
+```python
+query = SearchQuery(
+    query="PFAS drinking water EPA limits",
+    providers=["tavily"],
+    top_k=3,
+    recency_days=30,
+    domains_allow=["epa.gov"],
+)
+hits = client.search(query)
+```
+
+Provider-only extras such as answer summaries or follow-up suggestions remain in
+`SearchHit.raw_payload` instead of expanding the base `SearchHit` contract.

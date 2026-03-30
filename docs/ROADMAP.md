@@ -1,7 +1,7 @@
 # open_web_retrieval — Roadmap
 
 **Status**: Active
-**Last updated**: 2026-03-26
+**Last updated**: 2026-03-30
 
 See `REQUIREMENTS.md` for capabilities inventory and success criteria.
 
@@ -38,10 +38,13 @@ noscript detection, embedded JSON extraction), context manager protocol, cache
 hardening (file locking, LRU eviction, stats), async support (AsyncSourceFetcher,
 AsyncOpenWebRetrievalClient), integration test suite. Plan #06 complete, 143 tests.
 
+**v0.7 (shipped, 2026-03-30):** Tavily provider parity. Added a first-class
+Tavily search adapter, wired it into `OpenWebRetrievalClient`, and verified the
+normalized contract with unit tests plus a live smoke query. Plan #10 complete.
+
 **What's next:** v1.0 (shareable library) is still gated on ROADMAP Phase 4. For
-current consumers, the next justified work is evidence-driven maintenance:
-Plan #09 (`docs/plans/09_grounded_research_followups.md`) captures the shared
-retrieval/fallback/diagnostics improvements surfaced by grounded-research.
+current consumers, the next justified provider work is either Exa semantic search
+parity or grounded-research wiring onto the new Tavily adapter.
 
 ---
 
@@ -103,3 +106,4 @@ Full research: `docs/plans/01_fetch_resilience_and_crawl4ai.md`
 | 2026-03-24 | Keep httpx+trafilatura as core stack | Community consensus: still the recommended "fast path." Browser-based tools for escalation only. |
 | 2026-03-25 | Requirements before implementation | Wrote REQUIREMENTS.md to define consumers, boundaries, success criteria before building features. |
 | 2026-03-25 | Bump to v0.4.0, not v1.0 | Version reflects feature state. v1.0 is a ROADMAP Phase 4 milestone requiring broader shareable-ecosystem readiness. |
+| 2026-03-30 | Add Tavily as a direct adapter, not a framework wrapper | Thin JSON API, existing adapter pattern fits, and direct wrapping keeps observability under repo control. |

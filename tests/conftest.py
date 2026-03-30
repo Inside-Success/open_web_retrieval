@@ -12,6 +12,7 @@ import pytest
 
 from open_web_retrieval.adapters.brave import BraveSearchAdapter
 from open_web_retrieval.adapters.searxng import SearxNGSearchAdapter
+from open_web_retrieval.adapters.tavily import TavilySearchAdapter
 from open_web_retrieval.client import OpenWebRetrievalClient
 from open_web_retrieval.models import SearchQuery
 
@@ -33,6 +34,24 @@ def _make_searxng_response(results: list[dict]) -> httpx.Response:
         200,
         json=payload,
         request=httpx.Request("GET", "http://localhost:8080/search"),
+    )
+
+
+def _make_tavily_response(results: list[dict]) -> httpx.Response:
+    """Build a synthetic Tavily response."""
+    payload = {
+        "query": "test query",
+        "answer": None,
+        "follow_up_questions": [],
+        "images": [],
+        "request_id": "req_test",
+        "response_time": 0.12,
+        "results": results,
+    }
+    return httpx.Response(
+        200,
+        json=payload,
+        request=httpx.Request("POST", "https://api.tavily.com/search"),
     )
 
 
@@ -64,6 +83,14 @@ SEARXNG_RESULT_FIXTURE = {
     "language": "en",
 }
 
+TAVILY_RESULT_FIXTURE = {
+    "title": "Tavily Result",
+    "url": "https://example.net/tavily",
+    "content": "Summarized content from Tavily.",
+    "score": 0.88,
+    "raw_content": None,
+}
+
 HTML_FIXTURE = """<!DOCTYPE html>
 <html><head><title>Test Page</title></head>
 <body><h1>Test Article</h1><p>This is the main content of the test article.</p>
@@ -88,6 +115,16 @@ def searxng_adapter():
     )
     client = httpx.Client(transport=transport)
     return SearxNGSearchAdapter(base_url="http://localhost:8080", client=client)
+
+
+@pytest.fixture
+def tavily_adapter():
+    """Tavily adapter with a mock HTTP client."""
+    transport = httpx.MockTransport(
+        lambda req: _make_tavily_response([TAVILY_RESULT_FIXTURE] * 3)
+    )
+    client = httpx.Client(transport=transport)
+    return TavilySearchAdapter(api_key="test-key", client=client)
 
 
 @pytest.fixture

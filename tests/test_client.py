@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 from open_web_retrieval.adapters.brave import BraveSearchAdapter
+from open_web_retrieval.adapters.tavily import TavilySearchAdapter
 from open_web_retrieval.client import OpenWebRetrievalClient, SourceRecordBatch
 from open_web_retrieval.exceptions import (
     OpenWebRetrievalError,
@@ -29,6 +30,29 @@ class TestClientInit:
             )},
         )
         assert "brave" in client.default_providers
+
+    def test_tavily_only(self):
+        transport = httpx.MockTransport(
+            lambda req: httpx.Response(
+                200,
+                json={
+                    "query": "test",
+                    "answer": None,
+                    "follow_up_questions": [],
+                    "images": [],
+                    "request_id": "req_test",
+                    "response_time": 0.1,
+                    "results": [],
+                },
+                request=req,
+            )
+        )
+        client = OpenWebRetrievalClient(
+            adapters={"tavily": TavilySearchAdapter(
+                api_key="key", client=httpx.Client(transport=transport)
+            )},
+        )
+        assert "tavily" in client.default_providers
 
 
 class TestClientSearch:

@@ -1,6 +1,6 @@
 # Plan #10: Tavily Provider Parity
 
-**Status:** In Progress
+**Status:** Completed
 **Type:** implementation
 **Priority:** High
 **Blocked By:** research complete
@@ -134,3 +134,11 @@ Fail:
 - This is not full Plan #05 closure.
 - Exa and Jina remain deferred until Tavily is stable.
 - Grounded-research integration is a follow-on application wave, not part of this adapter wave.
+
+## Completed 2026-03-30
+
+- added `TavilySearchAdapter`
+- added client wiring via `tavily_api_key=...`
+- extended `ProviderName` / `SearchQuery.providers` with `"tavily"`
+- verified with targeted adapter/client/model tests
+- verified with one live Tavily smoke query using the configured shared key
