@@ -11,6 +11,7 @@ import httpx
 import pytest
 
 from open_web_retrieval.adapters.brave import BraveSearchAdapter
+from open_web_retrieval.adapters.exa import ExaSearchAdapter
 from open_web_retrieval.adapters.searxng import SearxNGSearchAdapter
 from open_web_retrieval.adapters.tavily import TavilySearchAdapter
 from open_web_retrieval.client import OpenWebRetrievalClient
@@ -55,6 +56,22 @@ def _make_tavily_response(results: list[dict]) -> httpx.Response:
     )
 
 
+def _make_exa_response(results: list[dict]) -> httpx.Response:
+    """Build a synthetic Exa response."""
+    payload = {
+        "requestId": "req_exa",
+        "resolvedSearchType": "deep",
+        "searchTime": 0.12,
+        "costDollars": {"total": 0.01},
+        "results": results,
+    }
+    return httpx.Response(
+        200,
+        json=payload,
+        request=httpx.Request("POST", "https://api.exa.ai/search"),
+    )
+
+
 def _make_html_response(html: str, url: str = "https://example.com") -> httpx.Response:
     """Build a synthetic HTML fetch response."""
     return httpx.Response(
@@ -91,6 +108,14 @@ TAVILY_RESULT_FIXTURE = {
     "raw_content": None,
 }
 
+EXA_RESULT_FIXTURE = {
+    "title": "Exa Result",
+    "url": "https://example.edu/exa",
+    "publishedDate": "2026-03-20T12:00:00Z",
+    "highlights": ["Deep semantic evidence excerpt."],
+    "highlightScores": [0.91],
+}
+
 HTML_FIXTURE = """<!DOCTYPE html>
 <html><head><title>Test Page</title></head>
 <body><h1>Test Article</h1><p>This is the main content of the test article.</p>
@@ -125,6 +150,16 @@ def tavily_adapter():
     )
     client = httpx.Client(transport=transport)
     return TavilySearchAdapter(api_key="test-key", client=client)
+
+
+@pytest.fixture
+def exa_adapter():
+    """Exa adapter with a mock HTTP client."""
+    transport = httpx.MockTransport(
+        lambda req: _make_exa_response([EXA_RESULT_FIXTURE] * 3)
+    )
+    client = httpx.Client(transport=transport)
+    return ExaSearchAdapter(api_key="test-key", client=client)
 
 
 @pytest.fixture

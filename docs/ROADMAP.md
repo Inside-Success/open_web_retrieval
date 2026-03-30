@@ -42,9 +42,14 @@ AsyncOpenWebRetrievalClient), integration test suite. Plan #06 complete, 143 tes
 Tavily search adapter, wired it into `OpenWebRetrievalClient`, and verified the
 normalized contract with unit tests plus a live smoke query. Plan #10 complete.
 
+**v0.8 (shipped, 2026-03-30):** Exa provider parity. Added a first-class Exa
+search adapter, wired it into `OpenWebRetrievalClient`, and verified the deep-search
+default with unit tests plus a live smoke query. Plan #11 complete.
+
 **What's next:** v1.0 (shareable library) is still gated on ROADMAP Phase 4. For
-current consumers, the next justified provider work is either Exa semantic search
-parity or grounded-research wiring onto the new Tavily adapter.
+current consumers, the next justified provider work is either exposing
+provider-specific semantic guidance when a real consumer needs it or building
+provider-composition/fallback policy above the current normalized contract.
 
 ---
 
@@ -107,3 +112,4 @@ Full research: `docs/plans/01_fetch_resilience_and_crawl4ai.md`
 | 2026-03-25 | Requirements before implementation | Wrote REQUIREMENTS.md to define consumers, boundaries, success criteria before building features. |
 | 2026-03-25 | Bump to v0.4.0, not v1.0 | Version reflects feature state. v1.0 is a ROADMAP Phase 4 milestone requiring broader shareable-ecosystem readiness. |
 | 2026-03-30 | Add Tavily as a direct adapter, not a framework wrapper | Thin JSON API, existing adapter pattern fits, and direct wrapping keeps observability under repo control. |
+| 2026-03-30 | Add Exa as a direct adapter with `type="deep"` default | Live API shape fit the existing contract; deep search is the correct Tyler-oriented default. |

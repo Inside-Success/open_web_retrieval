@@ -58,7 +58,7 @@ for record in batch.records:
 
 | Feature | Details |
 |---------|---------|
-| **Search** | Brave API, SearxNG, Tavily. Normalized `SearchHit` contract. Dedup by URL across providers. |
+| **Search** | Brave API, SearxNG, Tavily, Exa. Normalized `SearchHit` contract. Dedup by URL across providers. |
 | **Fetch** | httpx with error classification. `FetchError.retryable` distinguishes "try again" from "give up." |
 | **Blocked domains** | Configurable set — rejected immediately without network request. |
 | **Rate limiting** | Per-domain (default 2 req/s). Respects `Retry-After` header on 429. |
@@ -95,6 +95,7 @@ Error codes: `OPEN_WEB_RETRIEVAL_PROVIDER_UNAVAILABLE`,
 ```python
 client = OpenWebRetrievalClient(
     brave_api_key="...",                    # Brave API key
+    exa_api_key="...",                     # Exa API key
     searxng_base_url="http://localhost:8080",  # SearxNG instance
     tavily_api_key="...",                  # Tavily API key
     blocked_domains={"pinterest.com"},      # Skip without fetching
@@ -250,3 +251,21 @@ hits = client.search(query)
 
 Provider-only extras such as answer summaries or follow-up suggestions remain in
 `SearchHit.raw_payload` instead of expanding the base `SearchHit` contract.
+
+## Exa Notes
+
+Exa search is also available through the same normalized search contract:
+
+```python
+query = SearchQuery(
+    query="UBI labor force participation",
+    providers=["exa"],
+    top_k=3,
+    recency_days=30,
+    domains_allow=["oecd.org", "worldbank.org", "nber.org"],
+)
+hits = client.search(query)
+```
+
+The shared Exa adapter uses `type="deep"` by default. Exa-specific fields such as
+`highlights`, `author`, and `output` remain in `SearchHit.raw_payload`.

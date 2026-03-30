@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 from open_web_retrieval.adapters.brave import BraveSearchAdapter
+from open_web_retrieval.adapters.exa import ExaSearchAdapter
 from open_web_retrieval.adapters.tavily import TavilySearchAdapter
 from open_web_retrieval.client import OpenWebRetrievalClient, SourceRecordBatch
 from open_web_retrieval.exceptions import (
@@ -53,6 +54,27 @@ class TestClientInit:
             )},
         )
         assert "tavily" in client.default_providers
+
+    def test_exa_only(self):
+        transport = httpx.MockTransport(
+            lambda req: httpx.Response(
+                200,
+                json={
+                    "requestId": "req_exa",
+                    "resolvedSearchType": "deep",
+                    "searchTime": 0.1,
+                    "costDollars": {"total": 0.01},
+                    "results": [],
+                },
+                request=req,
+            )
+        )
+        client = OpenWebRetrievalClient(
+            adapters={"exa": ExaSearchAdapter(
+                api_key="key", client=httpx.Client(transport=transport)
+            )},
+        )
+        assert "exa" in client.default_providers
 
 
 class TestClientSearch:

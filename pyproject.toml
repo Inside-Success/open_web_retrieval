@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "open-web-retrieval"
-version = "0.7.0"
+version = "0.8.0"
 description = "Shared open-web retrieval substrate for search, fetch, and extraction."
 requires-python = ">=3.10"
 dependencies = [

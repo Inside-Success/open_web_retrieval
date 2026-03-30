@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 from open_web_retrieval.adapters.brave import BraveSearchAdapter, _parse_published
+from open_web_retrieval.adapters.exa import ExaSearchAdapter
 from open_web_retrieval.adapters.searxng import SearxNGSearchAdapter, _normalize_host
 from open_web_retrieval.adapters.tavily import TavilySearchAdapter
 from open_web_retrieval.exceptions import (
@@ -173,6 +174,66 @@ class TestTavilyAdapter:
         assert captured["include_domains"] == ["epa.gov"]
         assert captured["exclude_domains"] == ["wikipedia.org"]
         assert captured["days"] == 30
+
+
+class TestExaAdapter:
+    def test_search_returns_normalized_hits(self, exa_adapter):
+        query = SearchQuery(query="test", providers=("exa",), top_k=3)
+        hits = exa_adapter.search(query)
+        assert len(hits) == 3
+        for hit in hits:
+            assert isinstance(hit, SearchHit)
+            assert hit.provider == "exa"
+            assert hit.query == "test"
+            assert hit.url == "https://example.edu/exa"
+            assert hit.title == "Exa Result"
+            assert hit.snippet == "Deep semantic evidence excerpt."
+            assert hit.publisher == "example.edu"
+            assert hit.published_at is not None
+
+    def test_no_api_key_raises(self):
+        with pytest.raises(ProviderUnavailableError):
+            ExaSearchAdapter(api_key="")
+
+    def test_search_maps_domain_and_recency_filters(self):
+        import json
+
+        captured: dict[str, object] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            payload = json.loads(request.content.decode("utf-8"))
+            captured.update(payload)
+            return httpx.Response(
+                200,
+                json={
+                    "requestId": "req_exa",
+                    "resolvedSearchType": "deep",
+                    "searchTime": 0.1,
+                    "costDollars": {"total": 0.01},
+                    "results": [],
+                },
+                request=request,
+            )
+
+        adapter = ExaSearchAdapter(
+            api_key="key",
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+        query = SearchQuery(
+            query="test",
+            providers=("exa",),
+            top_k=4,
+            recency_days=30,
+            domains_allow=("epa.gov",),
+            domains_deny=("wikipedia.org",),
+        )
+        hits = adapter.search(query)
+        assert hits == []
+        assert captured["type"] == "deep"
+        assert captured["numResults"] == 4
+        assert captured["includeDomains"] == ["epa.gov"]
+        assert captured["excludeDomains"] == ["wikipedia.org"]
+        assert "startPublishedDate" in captured
 
 
 class TestParsePublished:

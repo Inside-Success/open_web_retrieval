@@ -1,6 +1,6 @@
 # Plan #11: Exa Provider Parity
 
-**Status:** In Progress
+**Status:** Completed
 **Type:** implementation
 **Priority:** High
 **Blocked By:** research complete
@@ -112,3 +112,11 @@ Fail:
 4. Add tests
 5. Run live smoke
 6. Update docs and version
+
+## Completed 2026-03-30
+
+- added `ExaSearchAdapter`
+- added client wiring via `exa_api_key=...`
+- extended `ProviderName` / `SearchQuery.providers` with `"exa"`
+- verified with targeted adapter/client/model tests
+- verified with one live Exa smoke query using the configured shared key

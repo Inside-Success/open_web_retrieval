@@ -11,6 +11,7 @@ from pathlib import Path
 
 from open_web_retrieval.adapters.base import SearchAdapter, SearchAdapterFactory
 from open_web_retrieval.adapters.brave import BraveSearchAdapter
+from open_web_retrieval.adapters.exa import ExaSearchAdapter
 from open_web_retrieval.adapters.searxng import SearxNGSearchAdapter
 from open_web_retrieval.adapters.tavily import TavilySearchAdapter
 from open_web_retrieval.cache import DiskCache
@@ -46,6 +47,7 @@ class OpenWebRetrievalClient:
         self,
         *,
         brave_api_key: str | None = None,
+        exa_api_key: str | None = None,
         searxng_base_url: str | None = None,
         tavily_api_key: str | None = None,
         timeout_seconds: float | None = None,
@@ -77,6 +79,8 @@ class OpenWebRetrievalClient:
         else:
             if brave_api_key:
                 configured_adapters.append(BraveSearchAdapter(api_key=brave_api_key, timeout_seconds=timeout_seconds))
+            if exa_api_key:
+                configured_adapters.append(ExaSearchAdapter(api_key=exa_api_key, timeout_seconds=timeout_seconds))
             if searxng_base_url:
                 configured_adapters.append(
                     SearxNGSearchAdapter(base_url=searxng_base_url, timeout_seconds=timeout_seconds),
@@ -87,7 +91,7 @@ class OpenWebRetrievalClient:
         if not configured_adapters:
             raise ProviderUnavailableError(
                 "no search providers configured",
-                context={"reason": "provide brave_api_key, searxng_base_url, and/or tavily_api_key"},
+                context={"reason": "provide brave_api_key, exa_api_key, searxng_base_url, and/or tavily_api_key"},
             )
 
         self.adapters = SearchAdapterFactory(list(configured_adapters))
