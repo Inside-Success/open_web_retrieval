@@ -163,7 +163,7 @@ def search(self, query):
 - [x] Search results deduplicated by URL across providers
 - [x] All existing tests pass (87 from v0.3)
 - [x] 11 new tests (exceeded plan: 4 extraction + 2 frontmatter + 3 date parsing + 2 dedup)
-- [ ] **Gate: research_v3 loop receives markdown from ExtractedDocument when using open_web_retrieval** (deferred — requires research_v3 integration)
+- [ ] **Gate: research_v3 loop receives markdown from ExtractedDocument when using open_web_retrieval** — Deferred; library-side verified via e2e_test.py
 
 ---
 

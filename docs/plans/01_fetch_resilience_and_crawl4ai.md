@@ -193,7 +193,7 @@ Add to `tests/test_fetch_extract.py` (existing file, not a new one):
 - [x] research_v3 `loop.py` checks `FetchError.retryable` — skips permanent failures
 - [x] All existing tests pass
 - [x] New tests for each classification case
-- [ ] **Gate: research_v3 loop completes F1 in <10 minutes**
+- [ ] **Gate: research_v3 loop completes F1 in <10 minutes** — Deferred; library-side verified via e2e_test.py
 
 ---
 

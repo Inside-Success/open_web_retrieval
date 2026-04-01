@@ -169,7 +169,7 @@ Add to `tests/test_fetch_extract.py`:
 - [x] Metrics incremented on every fetch outcome
 - [x] All existing tests pass (79 from v0.2)
 - [x] 8 new tests for rate limiting, Retry-After, and metrics
-- [ ] **Gate: 7-question eval batch completes without 429 errors from Brave**
+- [ ] **Gate: 7-question eval batch completes without 429 errors from Brave** — Deferred; library-side verified via e2e_test.py
 
 ---
 
