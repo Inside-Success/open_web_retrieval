@@ -1,0 +1,27 @@
+# Minimal governed-repo relationships graph scaffold.
+
+required_reading:
+  defaults:
+    - CLAUDE.md
+
+governance: []
+couplings: []
+architecture: []
+adrs: {}
+
+# Optional scoped file coverage policy.
+# - managed: files under managed include that are NOT explicitly registered
+#   in governance/couplings/architecture will trigger policy actions.
+# - unmanaged: files outside managed scope.
+#
+# Set managed.mode: hard-fail to require an explicit registration for every
+# managed file before edits are allowed. Set managed.mode: warn to log soft warnings
+# instead. Keep generated/large directories out of scope with managed.exclude.
+#
+# file_scope:
+#   managed:
+#     include: ["**"]
+#     exclude: [".venv/**", ".claude/**", "generated/**"]
+#     mode: warn
+#   unmanaged:
+#     mode: ignore

@@ -33,7 +33,7 @@ make help              # Show all targets
 GitHub Actions runs on push to main and PRs. Matrix: Python 3.10, 3.12.
 Workflow: `.github/workflows/test.yml`
 
-## Canonical Rules
+## Principles
 
 - `open_web_retrieval` is the one canonical place for reusable open-web retrieval primitives.
 - Domain repos should consume these primitives before hand-rolling web search, fetch, render, or extraction logic.
@@ -43,23 +43,20 @@ Workflow: `.github/workflows/test.yml`
 - **Commit early and often.** Every verified increment gets its own commit.
 - **Continue autonomously** until milestone complete or real blocker.
 
-## Mandatory Reading
+## Workflow
 
-- `docs/REQUIREMENTS.md` — capabilities, consumers, success criteria
-- `docs/ROADMAP.md` — version history and future direction
-- `src/open_web_retrieval/models.py` — schema contract
-- `src/open_web_retrieval/client.py` — retrieval orchestration
-
-## Maintenance
-
-- Edit this file first.
-- Keep `AGENTS.md` as a generated mirror.
+- Edit this file first when changing project policy.
+- Keep `AGENTS.md` as a generated mirror (via `render_agents_md.py` in project-meta).
 - Do not keep implementation shortcuts that silently alter contract behavior.
 - Do not merge local-product UI concerns into this substrate.
+- Both clients accept `tool_call_logger: ToolCallLogger | None` for structured tool-call logging. The protocol is defined in `observability.py`. Compatible with `llm_client`'s tool-call logger at runtime (same callable interface).
 
-## Observability
+## References
 
-Both clients accept `tool_call_logger: ToolCallLogger | None` for structured
-tool-call logging. The protocol is defined in `observability.py`. Compatible with
-`llm_client`'s tool-call logger at runtime (same callable interface). See README
-for usage examples.
+| Doc | Purpose |
+|-----|---------|
+| `docs/REQUIREMENTS.md` | Capabilities, consumers, success criteria |
+| `docs/ROADMAP.md` | Version history and future direction |
+| `src/open_web_retrieval/models.py` | Schema contract |
+| `src/open_web_retrieval/client.py` | Retrieval orchestration |
+| `README.md` | Usage examples and observability setup |
