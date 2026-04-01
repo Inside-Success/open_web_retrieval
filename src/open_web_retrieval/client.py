@@ -28,6 +28,15 @@ from open_web_retrieval.observability import (
     utc_now_iso,
 )
 
+try:
+    from data_contracts import boundary
+except ImportError:
+    def boundary(**kwargs):
+        """No-op boundary decorator until data_contracts package exists."""
+        def decorator(fn):
+            return fn
+        return decorator
+
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +148,12 @@ class OpenWebRetrievalClient:
         """Build a deterministic cache key for a search query + provider."""
         return f"search:{provider}:{query.query}:top_k={query.top_k}:recency={query.recency_days}"
 
+    @boundary(
+        name="open_web_retrieval.search",
+        version="0.1.0",
+        producer="open_web_retrieval",
+        consumers=["research_v3", "onto-canon6", "osint_tools"],
+    )
     def search(
         self,
         query: SearchQuery,
@@ -263,6 +278,12 @@ class OpenWebRetrievalClient:
         logger.info("SEARCH_RESULT query=%r hits=%d providers=%s", query.query, len(result), ",".join(providers))
         return result
 
+    @boundary(
+        name="open_web_retrieval.retrieve",
+        version="0.1.0",
+        producer="open_web_retrieval",
+        consumers=["research_v3", "onto-canon6", "osint_tools"],
+    )
     def retrieve(
         self,
         query: SearchQuery,
