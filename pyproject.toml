@@ -16,8 +16,9 @@ dependencies = [
 extract = ["trafilatura>=1.12,<3"]
 render = ["playwright>=1.45"]
 antibot = ["crawl4ai"]
-all = ["trafilatura>=1.12,<3", "playwright>=1.45", "crawl4ai"]
-test = ["pytest-asyncio>=0.23"]
+tools = ["llm-client>=0.7.0"]
+all = ["trafilatura>=1.12,<3", "playwright>=1.45", "crawl4ai", "llm-client>=0.7.0"]
+test = ["pytest-asyncio>=0.23", "llm-client>=0.7.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
