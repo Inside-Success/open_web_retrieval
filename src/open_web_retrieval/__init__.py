@@ -48,3 +48,9 @@ __all__ = [
     "SourceRecordBatch",
     "__version__",
 ]
+
+# Auto-register @tool decorated functions
+try:
+    from open_web_retrieval.adapters.tools import brave_search, searxng_search, tavily_search, exa_search  # noqa: F401
+except ImportError:
+    pass  # llm_client not installed
