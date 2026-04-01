@@ -17,7 +17,7 @@ and configurable resilience. It's shared infrastructure per the root CLAUDE.md:
 
 - Not a web crawler (no link-following, sitemaps, or recursive crawling)
 - Not a scraping framework (no CSS selectors, no DOM manipulation)
-- Not an anti-bot bypass service (no CAPTCHA solving, no proxy rotation)
+- Not a general anti-bot bypass service (no CAPTCHA solving, no proxy rotation). Optional Crawl4AI escalation on HTTP 403 is available via `enable_antibot=True`, but is narrowly scoped to browser-based re-fetch, not full bypass infrastructure.
 - Not a search engine (wraps Brave/SearxNG, doesn't index anything)
 
 ---

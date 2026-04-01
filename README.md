@@ -36,6 +36,12 @@ pip install -e "~/projects/open_web_retrieval[extract]"
 
 # With browser rendering (Playwright)
 pip install -e "~/projects/open_web_retrieval[render]"
+
+# With @tool adapter registration (requires llm_client)
+pip install -e "~/projects/open_web_retrieval[tools]"
+
+# All optional deps (extract + render + antibot + tools)
+pip install -e "~/projects/open_web_retrieval[all]"
 ```
 
 ## Quickstart

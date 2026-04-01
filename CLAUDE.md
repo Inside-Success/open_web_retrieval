@@ -53,6 +53,12 @@ Workflow: `.github/workflows/test.yml`
 - Treat `docs/ops/CAPABILITY_DECOMPOSITION.md` as the repo-local source of
   record for shared capability ownership and boundary posture.
 
+## Dependencies
+
+- **Required:** `httpx`, `pydantic`
+- **Optional:** `trafilatura` (`[extract]`), `playwright` (`[render]`), `crawl4ai` (`[antibot]`), `llm_client` (`[tools]` -- provides `@tool` decorator for search adapter registration)
+- **Observability:** `tool_call_logger` is a `Protocol`-based callable. When `llm_client` is installed, its tool-call logger is directly compatible.
+
 ## References
 
 | Doc | Purpose |
