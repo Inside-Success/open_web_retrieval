@@ -1,7 +1,7 @@
 # open_web_retrieval - Canonical Repo Instructions
 
 **Version:** 0.8.0
-**Last verified:** 2026-03-30
+**Last verified:** 2026-04-01
 
 This repo is the shared open-web retrieval boundary.
 
@@ -46,10 +46,12 @@ Workflow: `.github/workflows/test.yml`
 ## Workflow
 
 - Edit this file first when changing project policy.
-- Keep `AGENTS.md` as a generated mirror (via `render_agents_md.py` in project-meta).
+- Keep `AGENTS.md` as a generated mirror (via `scripts/meta/render_agents_md.py`).
 - Do not keep implementation shortcuts that silently alter contract behavior.
 - Do not merge local-product UI concerns into this substrate.
 - Both clients accept `tool_call_logger: ToolCallLogger | None` for structured tool-call logging. The protocol is defined in `observability.py`. Compatible with `llm_client`'s tool-call logger at runtime (same callable interface).
+- Treat `docs/ops/CAPABILITY_DECOMPOSITION.md` as the repo-local source of
+  record for shared capability ownership and boundary posture.
 
 ## References
 
@@ -57,6 +59,8 @@ Workflow: `.github/workflows/test.yml`
 |-----|---------|
 | `docs/REQUIREMENTS.md` | Capabilities, consumers, success criteria |
 | `docs/ROADMAP.md` | Version history and future direction |
+| `docs/ops/CAPABILITY_DECOMPOSITION.md` | Repo-local ownership ledger for the shared retrieval layer |
+| `docs/plans/CLAUDE.md` | Plan index and rollout status contract |
 | `src/open_web_retrieval/models.py` | Schema contract |
 | `src/open_web_retrieval/client.py` | Retrieval orchestration |
 | `README.md` | Usage examples and observability setup |

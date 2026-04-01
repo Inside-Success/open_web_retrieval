@@ -1,12 +1,76 @@
-# Minimal governed-repo relationships graph scaffold.
+# Linkage graph for open_web_retrieval's shared-infrastructure role.
 
 required_reading:
   defaults:
     - CLAUDE.md
+    - README.md
+    - docs/plans/CLAUDE.md
 
 governance: []
-couplings: []
-architecture: []
+
+couplings:
+  - sources:
+      - "CLAUDE.md"
+      - "README.md"
+      - "docs/REQUIREMENTS.md"
+      - "docs/ROADMAP.md"
+      - "docs/plans/CLAUDE.md"
+      - "docs/ops/CAPABILITY_DECOMPOSITION.md"
+      - "meta-process.yaml"
+      - "scripts/relationships.yaml"
+    docs:
+      - "README.md"
+      - "docs/REQUIREMENTS.md"
+      - "docs/ROADMAP.md"
+      - "docs/plans/CLAUDE.md"
+      - "docs/ops/CAPABILITY_DECOMPOSITION.md"
+    description: "Top-level boundary, ownership, and rollout surfaces must stay aligned."
+    why: "These files jointly define the repo boundary, current plan state, repo-local ownership source, and governance contract."
+  - sources:
+      - "src/open_web_retrieval/*.py"
+      - "src/open_web_retrieval/adapters/*.py"
+      - "scripts/e2e_test.py"
+    docs:
+      - "README.md"
+      - "docs/REQUIREMENTS.md"
+      - "docs/ROADMAP.md"
+      - "docs/ops/CAPABILITY_DECOMPOSITION.md"
+    description: "Runtime retrieval surfaces must stay aligned with the shared-substrate contract."
+    why: "These files define the reusable search, fetch, extract, and provenance capabilities that consumer repos rely on."
+  - sources:
+      - "Makefile"
+      - "scripts/meta/*.py"
+      - "meta-process.yaml"
+    docs:
+      - "CLAUDE.md"
+      - "docs/plans/CLAUDE.md"
+      - "docs/plans/13_governed-baseline-and-capability-ownership-rollout.md"
+    description: "Governance helper surfaces must stay aligned with the local workflow contract."
+    why: "These files now define how the repo participates in the governed baseline without silently enabling sanctioned worktrees."
+
+architecture:
+  - sources:
+      - "src/open_web_retrieval/*.py"
+      - "src/open_web_retrieval/adapters/*.py"
+    current:
+      - "README.md"
+      - "docs/REQUIREMENTS.md"
+      - "docs/ROADMAP.md"
+    target:
+      - "docs/ops/CAPABILITY_DECOMPOSITION.md"
+    plan_refs:
+      - "docs/plans/13_governed-baseline-and-capability-ownership-rollout.md"
+  - sources:
+      - "scripts/*.py"
+      - "scripts/meta/*.py"
+      - "meta-process.yaml"
+    current:
+      - "CLAUDE.md"
+      - "docs/plans/CLAUDE.md"
+    target:
+      - "docs/plans/13_governed-baseline-and-capability-ownership-rollout.md"
+      - "docs/ops/CAPABILITY_DECOMPOSITION.md"
+
 adrs: {}
 
 # Optional scoped file coverage policy.

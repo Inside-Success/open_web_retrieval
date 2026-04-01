@@ -174,6 +174,36 @@ def parse_uncertainty_register(content: str) -> list[str]:
     return items
 
 
+def parse_data_flow(content: str) -> list[dict[str, str]]:
+    """Parse the Data Flow section from a plan.
+
+    Returns list of dicts with producer, producer_schema, consumer, consumer_schema.
+    """
+    section = extract_section(content, "Data Flow")
+    if not section:
+        return []
+
+    flows: list[dict[str, str]] = []
+    for line in section.split("\n"):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if re.match(r"^\|[-\s|:]+\|$", line):
+            continue
+        if re.match(r"^\|\s*(Step|#)", line, re.IGNORECASE):
+            continue
+
+        parts = [p.strip() for p in line.split("|")]
+        if len(parts) >= 6:
+            flows.append({
+                "producer": parts[2].strip("`"),
+                "producer_schema": parts[3].strip("`"),
+                "consumer": parts[4].strip("`"),
+                "consumer_schema": parts[5].strip("`"),
+            })
+    return flows
+
+
 def parse_plan_status(content: str) -> tuple[str, str]:
     status = "Unknown"
     if m := re.search(r"\*{1,2}Status:?\*?\s*:?\s*([^\n]+)", content, re.IGNORECASE):
@@ -282,6 +312,7 @@ class ValidationResult:
     missing_adrs: list[tuple[int, str]]
     governance: list[tuple[str, int, str]]
     missing_sections: list[tuple[str, str]]  # (section_name, reason)
+    data_flow: list[dict[str, str]]  # parsed data flow declarations
 
     def to_payload(self) -> dict[str, Any]:
         return {
@@ -306,6 +337,7 @@ class ValidationResult:
                 {"adr": adr, "title": title}
                 for adr, title in self.missing_adrs
             ],
+            "data_flow": self.data_flow,
             "missing_sections": [
                 {"section": name, "reason": reason}
                 for name, reason in self.missing_sections
@@ -348,6 +380,9 @@ def validate_plan(plan_file: Path, plan_number: int | None, relationships: dict[
     missing_strict = {path for path in required_strict_norm if path not in covered}
     missing_soft = {path for path in required_soft_norm if path not in covered}
 
+    # Parse data flow declarations
+    data_flow = parse_data_flow(content)
+
     # Check for required plan sections (enforced design sequence)
     missing_sections: list[tuple[str, str]] = []
     for section_name, (aliases, reason) in REQUIRED_PLAN_SECTIONS.items():
@@ -375,6 +410,7 @@ def validate_plan(plan_file: Path, plan_number: int | None, relationships: dict[
         missing_adrs=missing_adrs,
         governance=governance,
         missing_sections=missing_sections,
+        data_flow=data_flow,
     )
 
 
@@ -430,6 +466,11 @@ def print_summary(result: ValidationResult) -> None:
                 print(f"    - {path}")
     else:
         print("\nNo documentation gaps found.")
+
+    if result.data_flow:
+        print(f"\nDATA FLOW DECLARATIONS ({len(result.data_flow)} boundary crossings):")
+        for flow in result.data_flow:
+            print(f"  {flow['producer']} ({flow['producer_schema']}) → {flow['consumer']} ({flow['consumer_schema']})")
 
     if result.missing_sections:
         print("\nMISSING PLAN SECTIONS (design sequence enforcement):")

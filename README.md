@@ -10,6 +10,21 @@ normalized web retrieval without hand-rolling httpx + HTML parsing.
 **What it is not:** Not a web crawler, not a scraping framework, not an anti-bot
 bypass service.
 
+Suggested reading order:
+
+1. `CLAUDE.md`
+2. `docs/ops/CAPABILITY_DECOMPOSITION.md`
+3. `docs/REQUIREMENTS.md`
+4. `docs/ROADMAP.md`
+5. `docs/plans/CLAUDE.md`
+
+## Shared Capability Ownership
+
+`open_web_retrieval` is a shared-infrastructure repo, not just a library with
+local examples. The repo-local source of record for what it owns, what it
+exports to consumer repos, and what it should not absorb lives in
+[`docs/ops/CAPABILITY_DECOMPOSITION.md`](./docs/ops/CAPABILITY_DECOMPOSITION.md).
+
 ## Installation
 
 ```bash
@@ -230,6 +245,7 @@ it directly — the interface is compatible.
 
 ## Documentation
 
+- [docs/ops/CAPABILITY_DECOMPOSITION.md](docs/ops/CAPABILITY_DECOMPOSITION.md) — repo-local ownership ledger for the shared retrieval substrate
 - [REQUIREMENTS.md](docs/REQUIREMENTS.md) — what the library does and doesn't do
 - [ROADMAP.md](docs/ROADMAP.md) — version history and future plans
 - [SOTA_RESEARCH.md](docs/SOTA_RESEARCH.md) — landscape analysis (Crawl4AI, Firecrawl, Tavily, etc.)
