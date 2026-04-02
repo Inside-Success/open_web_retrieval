@@ -30,3 +30,7 @@ repo-local worktree registry (`scripts/meta/worktree-coordination/check_claims.p
 Installing the sanctioned scripts is not enough by itself; a repo-local
 worktree claim must also exist before `make worktree-list` reports the active
 worktree truthfully instead of `ACTIVE (no claim)`.
+
+### 2026-04-02 — codex — best-practice
+
+Repo-local coordination runtime state lives under `.claude/` and should be ignored at the repo boundary. Otherwise a successful claim/reservation rollout leaves the canonical repo artificially dirty with local-only session and claim files.
