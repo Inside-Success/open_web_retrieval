@@ -10,6 +10,7 @@ from open_web_retrieval.adapters.exa import ExaSearchAdapter
 from open_web_retrieval.adapters.searxng import SearxNGSearchAdapter, _normalize_host
 from open_web_retrieval.adapters.tavily import TavilySearchAdapter
 from open_web_retrieval.exceptions import (
+    CapabilityNotSupportedError,
     OpenWebRetrievalError,
     ProviderUnavailableError,
     RetrievalError,
@@ -92,6 +93,19 @@ class TestBraveAdapter:
         hits = brave_adapter.search(query)
         assert hits[0].published_at is not None
 
+    def test_retrieval_instruction_fails_loud(self):
+        transport = httpx.MockTransport(
+            lambda req: httpx.Response(200, json={"web": {"results": []}}, request=req)
+        )
+        adapter = BraveSearchAdapter(api_key="key", client=httpx.Client(transport=transport))
+        query = SearchQuery(
+            query="test",
+            providers=("brave",),
+            retrieval_instruction="Prefer official sources.",
+        )
+        with pytest.raises(CapabilityNotSupportedError):
+            adapter.search(query)
+
 
 class TestSearxNGAdapter:
     def test_search_returns_normalized_hits(self, searxng_adapter):
@@ -112,6 +126,19 @@ class TestSearxNGAdapter:
         query = SearchQuery(query="test", providers=("searxng",), top_k=1)
         hits = searxng_adapter.search(query)
         assert hits[0].score_hint == 0.95
+
+    def test_retrieval_instruction_fails_loud(self):
+        transport = httpx.MockTransport(
+            lambda req: httpx.Response(200, json={"results": []}, request=req)
+        )
+        adapter = SearxNGSearchAdapter(client=httpx.Client(transport=transport))
+        query = SearchQuery(
+            query="test",
+            providers=("searxng",),
+            retrieval_instruction="Prefer official sources.",
+        )
+        with pytest.raises(CapabilityNotSupportedError):
+            adapter.search(query)
 
 
 class TestTavilyAdapter:
@@ -247,6 +274,19 @@ class TestTavilyAdapter:
         assert captured["search_depth"] == "basic"
         assert "chunks_per_source" not in captured
 
+    def test_retrieval_instruction_fails_loud(self):
+        adapter = TavilySearchAdapter(
+            api_key="key",
+            client=httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, json={}, request=req))),
+        )
+        query = SearchQuery(
+            query="test",
+            providers=("tavily",),
+            retrieval_instruction="Prefer official documentation.",
+        )
+        with pytest.raises(CapabilityNotSupportedError):
+            adapter.search(query)
+
 
 class TestExaAdapter:
     def test_search_returns_normalized_hits(self, exa_adapter):
@@ -378,6 +418,39 @@ class TestExaAdapter:
         assert hits == []
         assert captured["type"] == "deep"
         assert captured["contents"]["highlights"]["highlightsPerUrl"] == 3
+
+    def test_search_honors_retrieval_instruction(self):
+        import json
+
+        captured: dict[str, object] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            payload = json.loads(request.content.decode("utf-8"))
+            captured.update(payload)
+            return httpx.Response(
+                200,
+                json={
+                    "requestId": "req_exa",
+                    "resolvedSearchType": "deep",
+                    "searchTime": 0.1,
+                    "costDollars": {"total": 0.01},
+                    "results": [],
+                },
+                request=request,
+            )
+
+        adapter = ExaSearchAdapter(
+            api_key="key",
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+        query = SearchQuery(
+            query="test",
+            providers=("exa",),
+            retrieval_instruction="Prioritize peer-reviewed research and official evaluations.",
+        )
+        hits = adapter.search(query)
+        assert hits == []
+        assert captured["systemPrompt"] == "Prioritize peer-reviewed research and official evaluations."
 
 
 class TestParsePublished:

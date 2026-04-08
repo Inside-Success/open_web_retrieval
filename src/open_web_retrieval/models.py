@@ -79,6 +79,14 @@ class SearchQuery(BaseModel):
         default=None,
         description="Optional corpus/category hint for providers that support category-aware retrieval.",
     )
+    retrieval_instruction: str | None = Field(
+        default=None,
+        min_length=1,
+        description=(
+            "Optional provider-level retrieval/ranking guidance. Use this when a "
+            "provider supports a separate instruction surface beyond raw query text."
+        ),
+    )
     domains_allow: Sequence[str] = ()
     domains_deny: Sequence[str] = ()
 

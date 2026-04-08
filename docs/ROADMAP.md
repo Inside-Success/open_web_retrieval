@@ -51,10 +51,15 @@ default with unit tests plus a live smoke query. Plan #11 complete.
 detail, detail budget, and corpus intent. Tavily and Exa honor those controls
 through verified adapter request-body tests. Plan #15 complete.
 
+**v0.8.2 (shipped, 2026-04-08):** Generic retrieval-instruction support.
+`SearchQuery` now exposes one generic `retrieval_instruction` field for
+provider-level ranking guidance. Exa maps it to `systemPrompt`; unsupported
+providers fail loud instead of silently ignoring it. Plan #16 complete.
+
 **What's next:** v1.0 (shareable library) is still gated on ROADMAP Phase 4. The
-shared retrieval control surface is now typed and verified for Tavily and Exa.
-The next justified provider work is expanding those controls only when a real
-consumer needs more than the current shared contract.
+shared retrieval control surface is now typed and verified for Tavily and Exa,
+including Exa retrieval instructions. The next justified provider work is only
+new generic controls that a real consumer can prove it needs.
 
 ---
 
@@ -67,6 +72,8 @@ by real downstream needs:
 
 - expand `SearchQuery` so consumers can declare retrieval depth, detail,
   and corpus intent through the shared contract
+- add one generic retrieval-instruction field when a provider supports ranking
+  guidance beyond raw query text
 - verify via transport-capture tests that Tavily and Exa adapters honor those
   declared controls
 - keep provider-specific execution inside the shared adapters rather than
@@ -122,3 +129,4 @@ Full research: `docs/plans/01_fetch_resilience_and_crawl4ai.md`
 | 2026-03-30 | Add Tavily as a direct adapter, not a framework wrapper | Thin JSON API, existing adapter pattern fits, and direct wrapping keeps observability under repo control. |
 | 2026-03-30 | Add Exa as a direct adapter with `type="deep"` default | Live API shape fit the existing contract; deep search was the correct initial shared default. |
 | 2026-04-08 | Expand retrieval controls only through the normalized contract | Consumers should declare what they need explicitly; provider adapters should honor those typed controls rather than rely on fixed defaults. |
+| 2026-04-08 | Use one generic retrieval-instruction field instead of provider-specific prompt fields | Consumers need provider-level ranking guidance, but the shared boundary should stay generic and fail loud where unsupported. |

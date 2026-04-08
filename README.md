@@ -74,6 +74,18 @@ query = SearchQuery(
     corpus="news",
 )
 
+# Exa can also take a generic retrieval instruction when a caller needs
+# provider-level ranking guidance beyond raw query text.
+exa_query = SearchQuery(
+    query="PFAS drinking water regulation",
+    providers=["exa"],
+    search_depth="advanced",
+    result_detail="chunks",
+    detail_budget=3,
+    corpus="academic",
+    retrieval_instruction="Prioritize peer-reviewed research and official evaluations.",
+)
+
 # Full pipeline: search + fetch + extract
 batch = client.retrieve(query, allow_partial=True)
 for record in batch.records:

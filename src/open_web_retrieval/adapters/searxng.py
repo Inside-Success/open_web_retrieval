@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 import httpx
 
 from open_web_retrieval.adapters.base import SearchAdapter
-from open_web_retrieval.exceptions import OpenWebRetrievalError, RetrievalError
+from open_web_retrieval.exceptions import CapabilityNotSupportedError, OpenWebRetrievalError, RetrievalError
 from open_web_retrieval.models import SearchHit, SearchQuery
 
 
@@ -50,6 +50,11 @@ class SearxNGSearchAdapter(SearchAdapter):
 
     def search(self, query: SearchQuery) -> list[SearchHit]:
         """Execute SearxNG search and return normalized results."""
+        if query.retrieval_instruction is not None:
+            raise CapabilityNotSupportedError(
+                "SearxNG does not support retrieval_instruction",
+                context={"provider": self.provider_name, "query": query.query},
+            )
         endpoint = f"{self.base_url}/search"
         params = {
             "q": query.query,

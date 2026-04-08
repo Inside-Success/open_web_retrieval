@@ -8,7 +8,12 @@ from datetime import datetime
 import httpx
 
 from open_web_retrieval.adapters.base import SearchAdapter
-from open_web_retrieval.exceptions import OpenWebRetrievalError, ProviderUnavailableError, RetrievalError
+from open_web_retrieval.exceptions import (
+    CapabilityNotSupportedError,
+    OpenWebRetrievalError,
+    ProviderUnavailableError,
+    RetrievalError,
+)
 from open_web_retrieval.models import SearchHit, SearchQuery
 
 
@@ -54,6 +59,11 @@ class BraveSearchAdapter(SearchAdapter):
 
     def search(self, query: SearchQuery) -> list[SearchHit]:
         """Execute Brave search and return normalized results."""
+        if query.retrieval_instruction is not None:
+            raise CapabilityNotSupportedError(
+                "Brave does not support retrieval_instruction",
+                context={"provider": self.provider_name, "query": query.query},
+            )
         headers = {"Accept": "application/json", "X-Subscription-Token": self.api_key}
         params = {
             "q": query.query,

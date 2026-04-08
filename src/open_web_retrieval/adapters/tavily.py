@@ -79,6 +79,11 @@ class TavilySearchAdapter(SearchAdapter):
 
     def search(self, query: SearchQuery) -> list[SearchHit]:
         """Execute Tavily search and return normalized results."""
+        if query.retrieval_instruction is not None:
+            raise CapabilityNotSupportedError(
+                "Tavily does not support retrieval_instruction",
+                context={"provider": self.provider_name, "query": query.query},
+            )
         search_depth = self._resolve_search_depth(query)
         body: dict[str, object] = {
             "api_key": self.api_key,

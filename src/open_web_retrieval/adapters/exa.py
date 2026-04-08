@@ -136,6 +136,8 @@ class ExaSearchAdapter(SearchAdapter):
             body["includeDomains"] = list(query.domains_allow)
         if query.domains_deny:
             body["excludeDomains"] = list(query.domains_deny)
+        if query.retrieval_instruction is not None:
+            body["systemPrompt"] = query.retrieval_instruction
         start_published_date = _recency_start_iso(query.recency_days)
         if start_published_date is not None:
             body["startPublishedDate"] = start_published_date
