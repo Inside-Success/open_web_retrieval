@@ -1,0 +1,19 @@
+version: 1
+project: open_web_retrieval
+publish:
+  - path: README.md
+    type: ProjectOverview
+    title: Open Web Retrieval Overview
+    tags: [portfolio, shared-infrastructure, retrieval]
+  - path: docs/REQUIREMENTS.md
+    type: Requirements
+    tags: [retrieval, requirements]
+  - path: docs/ROADMAP.md
+    type: Roadmap
+    tags: [retrieval, roadmap]
+  - path: docs/SOTA_RESEARCH.md
+    type: ResearchSynthesis
+    tags: [retrieval, sota]
+exclude:
+  - .pytest_cache/**
+  - docs/wiki_manifest.yaml
