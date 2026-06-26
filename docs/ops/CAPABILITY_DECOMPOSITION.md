@@ -87,3 +87,15 @@ documented runtime dependency.
 - Optional render and anti-bot escalation backends are intentionally bounded.
   The threshold for expanding them further should stay evidence-driven rather
   than becoming a general scraping-arms-race commitment.
+
+## Medium Adapters (worktree: medium-retrieval, 2026-06-26)
+
+The following adapters are Medium-specific retrieval surfaces developed in the
+`medium-retrieval` worktree. They belong under the
+`open_web_retrieval.normalized_web_retrieval_and_provenance` family.
+
+| Boundary | Description |
+|---|---|
+| `open_web_retrieval.medium_feed` | Read full article text from a Medium author/publication RSS feed |
+| `open_web_retrieval.medium_get_article` | Fetch a Medium article's full text via cookie/Freedium/archive ladder |
+| `open_web_retrieval.medium_search` | Search Medium articles via Brave (site:medium.com scope) |
