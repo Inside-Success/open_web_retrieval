@@ -7,9 +7,10 @@ when a caller supplies a shared logger.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from hashlib import sha256
 from time import monotonic
+from typing import Any
 from uuid import uuid4
 
 
@@ -51,6 +52,34 @@ def compact_query_target(query: str, *, max_chars: int = 96) -> str:
     return f"query:{compact}"
 
 
+def build_search_result_preview(
+    hits: Sequence[Any],
+    *,
+    max_items: int = 5,
+    max_snippet_chars: int = 240,
+) -> str | None:
+    """Return a compact JSON preview of search hits for content-level tracing.
+
+    Produces a bounded ``[{title, url, snippet}]`` list so the trace browser can
+    show *what was retrieved*, not just how many. Snippets are truncated to keep
+    the shared observability DB lean. Returns ``None`` when there is nothing to
+    preview.
+    """
+    import json
+
+    if not hits:
+        return None
+    items: list[dict[str, str | None]] = []
+    for hit in hits[:max_items]:
+        title = getattr(hit, "title", None)
+        url = getattr(hit, "url", None)
+        snippet = getattr(hit, "snippet", None)
+        if snippet and len(snippet) > max_snippet_chars:
+            snippet = snippet[: max_snippet_chars - 1] + "…"
+        items.append({"title": title, "url": url, "snippet": snippet})
+    return json.dumps({"count": len(hits), "items": items}, ensure_ascii=False, default=str)
+
+
 def emit_tool_call(
     logger: ToolCallLogger | None,
     *,
@@ -69,6 +98,7 @@ def emit_tool_call(
     metrics: dict[str, object] | None = None,
     error_type: str | None = None,
     error_message: str | None = None,
+    result_preview: str | None = None,
 ) -> None:
     """Emit one shared tool-call record when a logger is configured.
 
@@ -101,12 +131,14 @@ def emit_tool_call(
             metrics=dict(metrics or {}),
             error_type=error_type,
             error_message=error_message,
+            result_preview=result_preview,
         )
     )
 
 
 __all__ = [
     "ToolCallLogger",
+    "build_search_result_preview",
     "compact_query_target",
     "duration_ms",
     "emit_tool_call",

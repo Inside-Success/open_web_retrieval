@@ -20,6 +20,7 @@ from open_web_retrieval.fetch_extract import SourceFetcher
 from open_web_retrieval.models import ExtractedDocument, FetchRequest, SearchHit, SearchQuery, SourceRecord
 from open_web_retrieval.observability import (
     ToolCallLogger,
+    build_search_result_preview,
     compact_query_target,
     duration_ms,
     emit_tool_call,
@@ -239,6 +240,7 @@ class OpenWebRetrievalClient:
                     task=task,
                     trace_id=trace_id,
                     metrics={**common_metrics, "returned_count": len(hits)},
+                    result_preview=build_search_result_preview(hits),
                 )
                 # Store in cache
                 if self._search_cache is not None and hits:
