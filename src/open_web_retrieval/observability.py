@@ -42,8 +42,15 @@ def query_sha256(query: str) -> str:
     return sha256(query.encode("utf-8")).hexdigest()
 
 
-def compact_query_target(query: str, *, max_chars: int = 96) -> str:
-    """Return a compact, SQL-readable query target preview."""
+def compact_query_target(query: str, *, max_chars: int = 400) -> str:
+    """Return a compact, SQL-readable query target preview.
+
+    96 chars actively misled duplicate-query analysis downstream: distinct
+    queries sharing a long common prefix (e.g. question + per-conflict
+    description) truncated to identical targets and read as duplicates
+    (grounded-research S36 finding). 400 keeps rows readable while making
+    the preview faithful for real query lengths.
+    """
 
     compact = " ".join(query.split())
     if len(compact) > max_chars:
