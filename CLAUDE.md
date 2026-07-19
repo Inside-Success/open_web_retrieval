@@ -7,7 +7,7 @@ This repo is the shared open-web retrieval boundary.
 
 ## Purpose
 
-- Search: Brave, SearxNG, Tavily, and Exa adapters in a normalized contract.
+- Search: Brave, SearxNG, Tavily, Exa, and OpenAlex (keyless scholarly, OA-gated) adapters in a normalized contract.
 - Fetch: `httpx` direct fetch with error classification, blocked domains, per-domain rate limiting, Retry-After.
 - Render: optional Playwright-based fallback when direct fetch is insufficient.
 - Anti-bot: optional Crawl4AI escalation on 403 (`enable_antibot=True`).
