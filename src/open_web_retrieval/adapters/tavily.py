@@ -91,7 +91,12 @@ class TavilySearchAdapter(SearchAdapter):
             "max_results": query.top_k,
             "search_depth": search_depth,
             "include_answer": False,
-            "include_raw_content": False,
+            # True (2026-07-19): Tavily fetches page content from ITS
+            # infrastructure — the only reliable text source for domains that
+            # block datacenter IPs (reddit et al). The full result dict (incl.
+            # raw_content) rides SearchHit.raw_payload; consumers use it as a
+            # fetch fallback. Same credit cost per Tavily's pricing.
+            "include_raw_content": True,
         }
         if search_depth == "advanced" and query.result_detail == "chunks":
             body["chunks_per_source"] = query.detail_budget or 3
