@@ -479,3 +479,59 @@ class TestNormalizeHost:
 
     def test_empty_url(self):
         assert _normalize_host("") is None
+
+
+class TestOpenAlexAdapter:
+    """OpenAlex: keyless, OA-gated scholarly search (2026-07-19)."""
+
+    @staticmethod
+    def _result(i, pdf=True, abstract=True):
+        r = {
+            "id": f"https://openalex.org/W{i}",
+            "title": f"Work {i}",
+            "doi": f"10.1/{i}",
+            "publication_date": "2026-03-01",
+            "relevance_score": 42.5,
+            "best_oa_location": (
+                {"pdf_url": f"https://host.org/{i}.pdf", "landing_page_url": f"https://host.org/{i}"}
+                if pdf else {}
+            ),
+            "primary_location": {"source": {"display_name": "Journal of Testing"}},
+            "abstract_inverted_index": (
+                {"Guided": [0], "onboarding": [1], "halves": [2], "churn": [3],
+                 "in": [4], "small": [5], "business": [6], "SaaS": [7],
+                 "per": [8], "our": [9], "controlled": [10], "study": [11],
+                 "with": [12], "long": [13], "abstract": [14], "text": [15],
+                 "for": [16], "the": [17], "raw": [18], "content": [19], "gate": [20]}
+                if abstract else None
+            ),
+        }
+        return r
+
+    def _adapter(self, results):
+        import httpx
+        from open_web_retrieval.adapters.openalex import OpenAlexSearchAdapter
+
+        transport = httpx.MockTransport(
+            lambda req: httpx.Response(200, json={"results": results}, request=req)
+        )
+        return OpenAlexSearchAdapter(client=httpx.Client(transport=transport))
+
+    def test_oa_gate_drops_unfetchable_works(self):
+        adapter = self._adapter([self._result(1), self._result(2, pdf=False), self._result(3)])
+        hits = adapter.search(SearchQuery(query="q", providers=("openalex",), top_k=5))
+        assert [h.url for h in hits] == ["https://host.org/1.pdf", "https://host.org/3.pdf"]
+
+    def test_abstract_reconstructed_and_rides_raw_content(self):
+        adapter = self._adapter([self._result(1)])
+        hit = adapter.search(SearchQuery(query="q", providers=("openalex",), top_k=1))[0]
+        assert hit.snippet.startswith("Guided onboarding halves churn")
+        assert hit.raw_payload["raw_content"].startswith("Guided onboarding halves churn")
+        assert hit.publisher == "Journal of Testing"
+        assert hit.published_at.year == 2026
+        assert hit.score_hint is None  # unbounded BM25 must not masquerade as 0-1
+
+    def test_domain_filters_raise_capability_error(self):
+        adapter = self._adapter([])
+        with pytest.raises(CapabilityNotSupportedError):
+            adapter.search(SearchQuery(query="q", providers=("openalex",), domains_allow=("x.org",)))
