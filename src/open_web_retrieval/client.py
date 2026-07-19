@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from open_web_retrieval.adapters.base import SearchAdapter, SearchAdapterFactory
+from open_web_retrieval.adapters.openalex import OpenAlexSearchAdapter
 from open_web_retrieval.adapters.brave import BraveSearchAdapter
 from open_web_retrieval.adapters.exa import ExaSearchAdapter
 from open_web_retrieval.adapters.searxng import SearxNGSearchAdapter
@@ -60,6 +61,8 @@ class OpenWebRetrievalClient:
         exa_api_key: str | None = None,
         searxng_base_url: str | None = None,
         tavily_api_key: str | None = None,
+        enable_openalex: bool = False,
+        openalex_mailto: str | None = None,
         timeout_seconds: float | None = None,
         adapters: Mapping[str, SearchAdapter] | None = None,
         cache_dir: str | Path | None = None,
@@ -98,6 +101,12 @@ class OpenWebRetrievalClient:
                 )
             if tavily_api_key:
                 configured_adapters.append(TavilySearchAdapter(api_key=tavily_api_key, timeout_seconds=timeout_seconds))
+            if enable_openalex:
+                # Keyless scholarly search (OA-gated). OPT-IN so default
+                # provider sets are unchanged for existing consumers.
+                configured_adapters.append(
+                    OpenAlexSearchAdapter(mailto=openalex_mailto, timeout_seconds=timeout_seconds or 15.0),
+                )
 
         if not configured_adapters:
             raise ProviderUnavailableError(

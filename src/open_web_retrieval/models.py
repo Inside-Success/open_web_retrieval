@@ -32,7 +32,7 @@ class FetchMetrics:
     escalated: int = 0
     auto_rendered: int = 0  # SPA detection escalation (Playwright re-fetch or embedded JSON)
 
-ProviderName = Literal["brave", "searxng", "tavily", "exa"]
+ProviderName = Literal["brave", "searxng", "tavily", "exa", "openalex"]
 RenderMode = Literal["never", "auto", "always"]
 SearchDepth = Literal["basic", "advanced"]
 ResultDetail = Literal["summary", "chunks"]
