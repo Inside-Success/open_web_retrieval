@@ -1,14 +1,30 @@
-# open_web_retrieval
+# Inside Success open_web_retrieval
 
-Shared Python library for web search, fetch, and extraction with provenance.
-Search the web, fetch pages, extract clean text or markdown — with error
-classification, rate limiting, and full provenance tracking.
+This repository is Inside Success's writable downstream for a shared Python
+library that searches the open web, fetches pages, and extracts clean text or
+markdown with error classification, rate limiting, and provenance tracking.
+
+It is a retrieval substrate for company applications, not a product-specific
+research workflow and not a permanent source of organizational truth.
 
 **What it is:** A reusable substrate that any project can `pip install` to get
 normalized web retrieval without hand-rolling httpx + HTML parsing.
 
 **What it is not:** Not a web crawler, not a scraping framework, not an anti-bot
 bypass service.
+
+## Runtime boundary
+
+The library owns normalized search, fetch, extraction, optional rendering, and
+provider-operation provenance. Consumer applications own their workflows,
+ranking decisions, governed source data, credentials, and user-facing policy.
+This repository must not commit private source snapshots or provider secrets.
+
+The maintained capability surface includes Brave, SearxNG, Tavily, Exa, and
+OpenAlex adapters; direct fetching; optional Trafilatura, Playwright, and
+Crawl4AI integrations; async and sync clients; caching; and bounded call
+observability. Provider support is capability-specific and should not be
+inferred from adapter registration alone.
 
 Suggested reading order:
 
