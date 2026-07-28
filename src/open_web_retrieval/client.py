@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from open_web_retrieval.adapters.base import SearchAdapter, SearchAdapterFactory
+from open_web_retrieval.adapters.arxiv import ArxivSearchAdapter
+from open_web_retrieval.adapters.hackernews import HackerNewsSearchAdapter
 from open_web_retrieval.adapters.openalex import OpenAlexSearchAdapter
 from open_web_retrieval.adapters.brave import BraveSearchAdapter
 from open_web_retrieval.adapters.exa import ExaSearchAdapter
@@ -63,6 +65,9 @@ class OpenWebRetrievalClient:
         tavily_api_key: str | None = None,
         enable_openalex: bool = False,
         openalex_mailto: str | None = None,
+        enable_hackernews: bool = False,
+        enable_arxiv: bool = False,
+        arxiv_contact: str | None = None,
         timeout_seconds: float | None = None,
         adapters: Mapping[str, SearchAdapter] | None = None,
         cache_dir: str | Path | None = None,
@@ -107,11 +112,25 @@ class OpenWebRetrievalClient:
                 configured_adapters.append(
                     OpenAlexSearchAdapter(mailto=openalex_mailto, timeout_seconds=timeout_seconds or 15.0),
                 )
+            if enable_hackernews:
+                # Keyless, source-TARGETED: HN's own index. OPT-IN so default
+                # provider sets are unchanged for existing consumers.
+                configured_adapters.append(
+                    HackerNewsSearchAdapter(timeout_seconds=timeout_seconds or 15.0),
+                )
+            if enable_arxiv:
+                # Keyless preprint search. arXiv asks for ~1 req/3s and does not
+                # want concurrent fan-out; pacing is the caller's job.
+                configured_adapters.append(
+                    ArxivSearchAdapter(
+                        timeout_seconds=timeout_seconds or 20.0, contact=arxiv_contact
+                    ),
+                )
 
         if not configured_adapters:
             raise ProviderUnavailableError(
                 "no search providers configured",
-                context={"reason": "provide brave_api_key, exa_api_key, searxng_base_url, and/or tavily_api_key"},
+                context={"reason": "provide brave_api_key, exa_api_key, searxng_base_url, tavily_api_key, and/or set enable_openalex / enable_hackernews / enable_arxiv (keyless)"},
             )
 
         self.adapters = SearchAdapterFactory(list(configured_adapters))

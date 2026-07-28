@@ -32,7 +32,14 @@ class FetchMetrics:
     escalated: int = 0
     auto_rendered: int = 0  # SPA detection escalation (Playwright re-fetch or embedded JSON)
 
-ProviderName = Literal["brave", "searxng", "tavily", "exa", "openalex"]
+ProviderName = Literal[
+    "brave", "searxng", "tavily", "exa", "openalex",
+    # Source-TARGETED, keyless providers (2026-07-28). Unlike the general web
+    # providers above, these query a single venue's own index — HN's index holds
+    # HN, arXiv's holds preprints — so practitioner and preprint evidence comes
+    # back by construction instead of depending on how a general index ranks it.
+    "hackernews", "arxiv",
+]
 RenderMode = Literal["never", "auto", "always"]
 SearchDepth = Literal["basic", "advanced"]
 ResultDetail = Literal["summary", "chunks"]
