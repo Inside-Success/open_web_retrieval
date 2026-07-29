@@ -13,6 +13,7 @@ from open_web_retrieval.adapters.base import SearchAdapter, SearchAdapterFactory
 from open_web_retrieval.adapters.arxiv import ArxivSearchAdapter
 from open_web_retrieval.adapters.hackernews import HackerNewsSearchAdapter
 from open_web_retrieval.adapters.openalex import OpenAlexSearchAdapter
+from open_web_retrieval.adapters.reddit import RedditSearchAdapter
 from open_web_retrieval.adapters.brave import BraveSearchAdapter
 from open_web_retrieval.adapters.exa import ExaSearchAdapter
 from open_web_retrieval.adapters.searxng import SearxNGSearchAdapter
@@ -68,6 +69,7 @@ class OpenWebRetrievalClient:
         enable_hackernews: bool = False,
         enable_arxiv: bool = False,
         arxiv_contact: str | None = None,
+        enable_reddit: bool = False,
         timeout_seconds: float | None = None,
         adapters: Mapping[str, SearchAdapter] | None = None,
         cache_dir: str | Path | None = None,
@@ -118,6 +120,13 @@ class OpenWebRetrievalClient:
                 configured_adapters.append(
                     HackerNewsSearchAdapter(timeout_seconds=timeout_seconds or 15.0),
                 )
+            if enable_reddit:
+                # Credentials come from the environment (REDDIT_CLIENT_ID etc);
+                # the adapter raises ProviderUnavailableError naming the missing
+                # one rather than failing opaquely at first search.
+                configured_adapters.append(
+                    RedditSearchAdapter(timeout_seconds=timeout_seconds or 20.0),
+                )
             if enable_arxiv:
                 # Keyless preprint search. arXiv asks for ~1 req/3s and does not
                 # want concurrent fan-out; pacing is the caller's job.
@@ -130,7 +139,7 @@ class OpenWebRetrievalClient:
         if not configured_adapters:
             raise ProviderUnavailableError(
                 "no search providers configured",
-                context={"reason": "provide brave_api_key, exa_api_key, searxng_base_url, tavily_api_key, and/or set enable_openalex / enable_hackernews / enable_arxiv (keyless)"},
+                context={"reason": "provide brave_api_key, exa_api_key, searxng_base_url, tavily_api_key, and/or set enable_openalex / enable_hackernews / enable_arxiv (keyless) / enable_reddit"},
             )
 
         self.adapters = SearchAdapterFactory(list(configured_adapters))

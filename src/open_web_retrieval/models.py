@@ -38,7 +38,7 @@ ProviderName = Literal[
     # providers above, these query a single venue's own index — HN's index holds
     # HN, arXiv's holds preprints — so practitioner and preprint evidence comes
     # back by construction instead of depending on how a general index ranks it.
-    "hackernews", "arxiv",
+    "hackernews", "arxiv", "reddit",
 ]
 RenderMode = Literal["never", "auto", "always"]
 SearchDepth = Literal["basic", "advanced"]

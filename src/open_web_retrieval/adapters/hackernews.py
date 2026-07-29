@@ -85,7 +85,8 @@ class HackerNewsSearchAdapter(SearchAdapter):
             params["numericFilters"] = f"created_at_i>{int(cutoff.timestamp())}"
 
         try:
-            response = self.client.get(_BASE_URL, params=params)
+            with self.paced():
+                response = self.client.get(_BASE_URL, params=params)
             response.raise_for_status()
         except httpx.TimeoutException as exc:
             raise OpenWebRetrievalError(

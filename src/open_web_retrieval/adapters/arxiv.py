@@ -12,9 +12,9 @@ Inside-Success/social-research-mcp (Brian Mills), reshaped to this package's
 SearchAdapter contract.
 
 RATE DISCIPLINE: arXiv asks callers for roughly one request every three seconds
-and to identify themselves. This adapter does NOT sleep — pacing belongs to the
-caller, and this package's consumers already serialize provider calls. Do not
-fan this adapter out concurrently without a limiter.
+and to identify themselves. That is now ENFORCED, not merely documented - the
+base class throttle serializes this provider at ~18/min (see _PROVIDER_LIMITS).
+Pass ``contact`` to identify yourself as arXiv requests.
 
 The abstract rides ``raw_payload["raw_content"]`` so a consumer holds verifiable
 text even when the PDF fetch is blocked (same contract as the OpenAlex adapter).
@@ -106,7 +106,8 @@ class ArxivSearchAdapter(SearchAdapter):
         }
 
         try:
-            response = self.client.get(_BASE_URL, params=params)
+            with self.paced():
+                response = self.client.get(_BASE_URL, params=params)
             response.raise_for_status()
         except httpx.TimeoutException as exc:
             raise OpenWebRetrievalError(
