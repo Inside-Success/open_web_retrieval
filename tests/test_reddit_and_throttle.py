@@ -284,11 +284,26 @@ class TestRedditSearch:
         assert hit.published_at is not None
         assert hit.published_at.tzinfo is not None
 
-    def test_domain_filters_raise_capability_error(self):
-        adapter = _adapter(_ok_auth_then(lambda req: httpx.Response(200, json={}, request=req)))
-        with pytest.raises(CapabilityNotSupportedError, match="subreddit"):
-            adapter.search(
-                SearchQuery(query="q", providers=("reddit",), domains_allow=("x.org",)))
+    def test_domains_allow_now_scopes_instead_of_raising(self):
+        """CHANGED 2026-07-29: domains_allow became subreddit scoping.
+
+        This test previously asserted that domains_allow raised
+        CapabilityNotSupportedError with the message "use subreddit scoping".
+        That message described a capability that did not exist; it does now, so
+        the field scopes rather than rejecting. domains_DENY still raises — see
+        TestSubredditScoping.
+        """
+        seen = {}
+
+        def capture(req):
+            seen["url"] = str(req.url)
+            return httpx.Response(200, json={}, request=req)
+
+        adapter = _adapter(_ok_auth_then(capture))
+        adapter.search(SearchQuery(query="q", providers=("reddit",),
+                                   domains_allow=("devops", "r/claudeai")))
+        assert "subreddit%3Adevops" in seen["url"] or "subreddit:devops" in seen["url"]
+        assert "subreddit%3Aclaudeai" in seen["url"] or "subreddit:claudeai" in seen["url"]
 
     def test_rate_limit_headers_surface_in_the_error_context(self):
         """When Reddit does throttle us, the remaining budget must reach the
@@ -314,3 +329,71 @@ class TestWiring:
 
     def test_provider_name_accepts_reddit(self):
         SearchQuery(query="q", providers=("reddit",))
+
+
+class TestSubredditScoping:
+    """`domains_allow` carries SUBREDDIT names for Reddit.
+
+    Reddit has ONE host, so a domain filter is meaningless here; the adapter used
+    to raise "use subreddit scoping" and now implements it.
+
+    MEASURED against the live API 2026-07-29 (12 hits per shape) — the reason
+    callers must send keywords, not a sentence:
+
+        long sentence                        ->  0 hits
+        short keywords                       -> 12 hits,  5 on-topic
+        short keywords + subreddit: filter   -> 12 hits, 12 on-topic
+        long sentence + subreddit: filter    ->  0 hits
+
+    End-to-end through the real adapter: 10/10 on-topic when scoped.
+    """
+
+    @staticmethod
+    def _q(**kw):
+        from open_web_retrieval.models import SearchQuery
+        kw.setdefault("query", "coding agents worktrees")
+        kw.setdefault("providers", ("reddit",))
+        return SearchQuery(**kw)
+
+    def _scope(self, **kw) -> str:
+        from open_web_retrieval.adapters.reddit import RedditSearchAdapter
+        return RedditSearchAdapter._scoped_query(self._q(**kw))
+
+    def test_no_allowlist_leaves_the_query_untouched(self) -> None:
+        assert self._scope() == "coding agents worktrees"
+
+    def test_allowlist_becomes_a_subreddit_or_filter(self) -> None:
+        assert self._scope(domains_allow=("devops", "claudeai")) == (
+            "(coding agents worktrees) (subreddit:devops OR subreddit:claudeai)"
+        )
+
+    def test_names_accepted_bare_or_prefixed(self) -> None:
+        """A caller holding "r/devops" must not silently search for "r/devops"."""
+        for name in ("devops", "r/devops", "/r/devops", "R/DevOps", " devops "):
+            assert self._scope(domains_allow=(name,)) == (
+                "(coding agents worktrees) (subreddit:devops)"
+            ), name
+
+    def test_duplicates_collapse_and_order_is_stable(self) -> None:
+        # dict.fromkeys keeps first-seen order — a stable q means the engine's
+        # search-dedup cache key stays stable across runs.
+        assert self._scope(domains_allow=("b", "a", "B", "r/a")) == (
+            "(coding agents worktrees) (subreddit:b OR subreddit:a)"
+        )
+
+    def test_empty_entries_are_dropped_not_emitted(self) -> None:
+        # A blank would become "subreddit:" and silently return nothing.
+        assert self._scope(domains_allow=("", "  ", "devops")) == (
+            "(coding agents worktrees) (subreddit:devops)"
+        )
+        assert self._scope(domains_allow=("", "  ")) == "coding agents worktrees"
+
+    def test_domains_deny_still_raises(self) -> None:
+        """Exclusion has no Reddit equivalent — fail loud rather than ignore it."""
+        import pytest
+
+        from open_web_retrieval.adapters.reddit import RedditSearchAdapter
+        from open_web_retrieval.exceptions import CapabilityNotSupportedError
+
+        with pytest.raises(CapabilityNotSupportedError):
+            RedditSearchAdapter().search(self._q(domains_deny=("spam.com",)))

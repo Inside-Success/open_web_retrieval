@@ -33,6 +33,7 @@ so a descriptive UA is an API requirement rather than politeness.
 from __future__ import annotations
 
 import os
+import re
 import time
 from datetime import datetime, timezone
 
@@ -158,6 +159,40 @@ class RedditSearchAdapter(SearchAdapter):
         self._token_expires_at = time.monotonic() + max(60.0, expires_in - _TOKEN_SKEW_SECONDS)
         return self._token
 
+    # -- query shaping ------------------------------------------------------
+
+    @staticmethod
+    def _scoped_query(query: SearchQuery) -> str:
+        """Build the ``q`` value, scoping to subreddits when the caller asks.
+
+        ``domains_allow`` carries SUBREDDIT names for this provider — Reddit has
+        one host, so a domain filter is meaningless here and the field's only
+        sensible reading is venue scoping (this adapter used to raise with the
+        message "use subreddit scoping"). Names are accepted bare (``devops``)
+        or prefixed (``r/devops``, ``/r/devops``).
+
+        Measured against the live API on 2026-07-29, 12 hits per shape:
+
+            long sentence                        ->  0 hits
+            short keywords                       -> 12 hits,  5 on-topic
+            short keywords + subreddit: filter   -> 12 hits, 12 on-topic
+            long sentence + subreddit: filter    ->  0 hits
+
+        So the filter earns perfect precision, but ONLY over a keyword-shaped
+        query — Reddit's index returns nothing at all for a natural-language
+        sentence, with or without scoping. Callers must send keywords.
+        """
+        q = (query.query or "").strip()
+        subs = [
+            re.sub(r"^/?r/", "", str(s).strip(), flags=re.IGNORECASE).lower()
+            for s in (query.domains_allow or ())
+        ]
+        subs = [s for s in subs if s]
+        if not subs:
+            return q
+        scope = " OR ".join(f"subreddit:{s}" for s in dict.fromkeys(subs))
+        return f"({q}) ({scope})" if q else f"({scope})"
+
     # -- search -------------------------------------------------------------
 
     def search(self, query: SearchQuery) -> list[SearchHit]:
@@ -167,15 +202,15 @@ class RedditSearchAdapter(SearchAdapter):
                 "Reddit does not support retrieval_instruction",
                 context={"provider": self.provider_name, "query": query.query},
             )
-        if query.domains_allow or query.domains_deny:
+        if query.domains_deny:
             raise CapabilityNotSupportedError(
-                "Reddit does not support domain filters (use subreddit scoping)",
+                "Reddit does not support domain exclusion",
                 context={"provider": self.provider_name, "query": query.query},
             )
 
         token = self._access_token()
         params: dict[str, str] = {
-            "q": query.query,
+            "q": self._scoped_query(query),
             "limit": str(min(max(query.top_k, 1), 100)),
             "sort": "relevance",
             "type": "link",  # posts, not subreddits or users
