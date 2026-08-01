@@ -7,7 +7,7 @@ This repo is the shared open-web retrieval boundary.
 
 ## Purpose
 
-- Search: Brave, SearxNG, Tavily, Exa, and OpenAlex (keyless scholarly, OA-gated) adapters in a normalized contract.
+- Search: Brave, SearxNG, Tavily, Exa, OpenAlex (keyless scholarly, OA-gated), arXiv (keyless), Hacker News (Algolia, keyless), and Reddit (OAuth; `domains_allow` = subreddit scoping; unbounded vote counts ship as `score_hint=None` with the raw value in `raw_payload`) adapters in a normalized contract.
 - Fetch: `httpx` direct fetch with error classification, blocked domains, per-domain rate limiting, Retry-After.
 - Render: optional Playwright-based fallback when direct fetch is insufficient.
 - Anti-bot: optional Crawl4AI escalation on 403 (`enable_antibot=True`).
