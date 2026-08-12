@@ -1,7 +1,7 @@
 # open_web_retrieval — Roadmap
 
 **Status**: Active
-**Last updated**: 2026-04-08
+**Last updated**: 2026-08-12
 
 See `REQUIREMENTS.md` for capabilities inventory and success criteria.
 
@@ -55,6 +55,11 @@ through verified adapter request-body tests. Plan #15 complete.
 `SearchQuery` now exposes one generic `retrieval_instruction` field for
 provider-level ranking guidance. Exa maps it to `systemPrompt`; unsupported
 providers fail loud instead of silently ignoring it. Plan #16 complete.
+
+**Downstream reconciliation (2026-08-12):** Declares the canonical personal
+upstream and immutable accepted revision in `UPSTREAM.json`, retains Reddit,
+OpenAlex, and embeddings as company overlays, and removes the unrelated public
+`llm-client` distribution from install and test dependencies.
 
 **What's next:** v1.0 (shareable library) is still gated on ROADMAP Phase 4. The
 shared retrieval control surface is now typed and verified for Tavily and Exa,
@@ -130,3 +135,4 @@ Full research: `docs/plans/01_fetch_resilience_and_crawl4ai.md`
 | 2026-03-30 | Add Exa as a direct adapter with `type="deep"` default | Live API shape fit the existing contract; deep search was the correct initial shared default. |
 | 2026-04-08 | Expand retrieval controls only through the normalized contract | Consumers should declare what they need explicitly; provider adapters should honor those typed controls rather than rely on fixed defaults. |
 | 2026-04-08 | Use one generic retrieval-instruction field instead of provider-specific prompt fields | Consumers need provider-level ranking guidance, but the shared boundary should stay generic and fail loud where unsupported. |
+| 2026-08-12 | Use a source-overlay pin instead of a runtime dependency | The public downstream and private upstream currently share one distribution/import name; a direct dependency would be recursive and would break public CI. |

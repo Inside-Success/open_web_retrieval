@@ -26,6 +26,20 @@ Crawl4AI integrations; async and sync clients; caching; and bounded call
 observability. Provider support is capability-specific and should not be
 inferred from adapter registration alone.
 
+## Upstream relationship
+
+The reusable canonical upstream is `BrianMills2718/open_web_retrieval`. This
+public repository is a source-overlay downstream pinned by [`UPSTREAM.json`](./UPSTREAM.json).
+The repositories have independent histories; shared changes move through
+reviewed source ports with commit provenance, never history merges or
+cherry-picks.
+
+This package does not declare the private upstream as a runtime dependency.
+Both repositories currently use the same distribution/import name, and public
+CI must remain installable without private Git credentials. Reddit, OpenAlex,
+and embeddings remain explicit downstream-only overlays until separately
+accepted upstream.
+
 Suggested reading order:
 
 1. `CLAUDE.md`
@@ -44,21 +58,28 @@ exports to consumer repos, and what it should not absorb lives in
 ## Installation
 
 ```bash
-# Base (search + fetch only)
-pip install -e ~/projects/open_web_retrieval
+# Clone this public downstream and create an isolated environment
+git clone https://github.com/Inside-Success/open_web_retrieval.git
+cd open_web_retrieval
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
 
-# With text/markdown extraction (trafilatura)
-pip install -e "~/projects/open_web_retrieval[extract]"
+# Base or tested extraction install
+python -m pip install -e .
+python -m pip install -e ".[extract,test]"
+python -m pytest tests/ -q
 
-# With browser rendering (Playwright)
-pip install -e "~/projects/open_web_retrieval[render]"
-
-# With @tool adapter registration (requires llm_client)
-pip install -e "~/projects/open_web_retrieval[tools]"
-
-# All optional deps (extract + render + antibot + tools)
-pip install -e "~/projects/open_web_retrieval[all]"
+# Public optional dependencies
+python -m pip install -e ".[render]"
+python -m pip install -e ".[all]"
 ```
+
+The optional `open_web_retrieval.adapters.tools` integration requires the
+separately authorized private `llm_client` source checkout. Do not install the
+public PyPI distribution named `llm-client`; it is an unrelated project.
+Generic tests skip that private integration when the approved checkout is not
+available.
 
 ## Quickstart
 

@@ -1,5 +1,8 @@
 """Tests for @tool-decorated async search functions."""
 
+# The optional dependency must be checked before importing the module under test.
+# ruff: noqa: I001
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -7,7 +10,15 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-from llm_client.tools import ToolResult, registry
+llm_tools = pytest.importorskip(
+    "llm_client.tools",
+    reason=(
+        "the approved private llm_client source checkout is required for "
+        "adapter integration tests"
+    ),
+)
+ToolResult = llm_tools.ToolResult
+registry = llm_tools.registry
 
 from open_web_retrieval.adapters.tools import (
     brave_search,

@@ -1,6 +1,6 @@
 # Capability Decomposition
 
-Last updated: 2026-04-01
+Last updated: 2026-08-12
 
 ## Purpose
 
@@ -18,8 +18,9 @@ Use this together with:
 
 ## Role
 
-`open_web_retrieval` is the shared open-web retrieval substrate for the
-ecosystem.
+This repository is Inside Success's public source-overlay downstream. The
+canonical reusable upstream and accepted revision are declared in
+`../../UPSTREAM.json`.
 
 It owns:
 
@@ -43,7 +44,8 @@ Those stay in consuming projects, `llm_client`, or `project-meta`.
 
 | Capability | Current owner | Intended owner | Class | Posture | Notes |
 |---|---|---|---|---|---|
-| Search/fetch/extract provider adapters, normalized retrieval contracts, provenance, and resilience primitives | `open_web_retrieval` | `open_web_retrieval` | shared infrastructure | no move planned | This is the primary shared capability exported by the repo. |
+| Generic search/fetch/extract contracts and reusable resilience primitives | `BrianMills2718/open_web_retrieval` | canonical personal upstream | shared infrastructure | consume through reviewed source ports | `UPSTREAM.json` pins the accepted revision; histories remain independent. |
+| Reddit, OpenAlex, and embeddings helpers | `Inside-Success/open_web_retrieval` | company downstream pending separate review | company overlay | retain downstream | Do not imply upstream acceptance until each capability has its own reviewed port. |
 | Optional render and anti-bot escalation backends behind the shared retrieval contract | `open_web_retrieval` | `open_web_retrieval` | shared infrastructure | retain as bounded extension | Keep this as optional escalation, not as a full browser-automation or anti-bot platform. |
 | Shared LLM execution, cost/latency storage, and durable observability backends | `llm_client` | `llm_client` | consumed shared infrastructure | consume, do not re-own | `open_web_retrieval` can emit compatible tool-call records, but should not grow a competing runtime or storage layer. |
 | Project-specific query planning, ranking policy, and downstream use of retrieved text | consuming repos (`research_v3`, `grounded-research`, `sam_gov`, others) | consuming repos | intentionally out of scope | do not absorb | Consumers decide what to search for and how to use the retrieved material. |
