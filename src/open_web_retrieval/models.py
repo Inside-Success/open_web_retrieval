@@ -1,15 +1,13 @@
 """Pydantic schema models for shared open-web retrieval contracts."""
 
 from __future__ import annotations
-from dataclasses import dataclass, field
 
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
-from typing import Literal
-from typing import Mapping
-from typing import Sequence
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from open_web_retrieval._version import __version__
 
@@ -40,6 +38,7 @@ ProviderName = Literal[
     # back by construction instead of depending on how a general index ranks it.
     "hackernews", "arxiv", "reddit",
 ]
+OpenAlexSearchMode = Literal["keyword", "semantic", "oql"]
 RenderMode = Literal["never", "auto", "always"]
 SearchDepth = Literal["basic", "advanced"]
 ResultDetail = Literal["summary", "chunks"]
@@ -118,6 +117,35 @@ class SearchQuery(BaseModel):
         if result_detail == "summary":
             raise ValueError("detail_budget requires result_detail='chunks' or an unspecified provider default")
         return detail_budget
+
+
+class OpenAlexQuery(SearchQuery):
+    """OpenAlex works query with an explicit provider-native search mode."""
+
+    providers: Sequence[Literal["openalex"]] = ("openalex",)
+    mode: OpenAlexSearchMode = "keyword"
+
+    @field_validator("providers")
+    @classmethod
+    def ensure_only_openalex(
+        cls, providers: Sequence[Literal["openalex"]]
+    ) -> tuple[Literal["openalex"], ...]:
+        if tuple(providers) != ("openalex",):
+            raise ValueError("OpenAlexQuery only supports providers=('openalex',)")
+        return ("openalex",)
+
+    @model_validator(mode="after")
+    def ensure_mode_contract(self) -> OpenAlexQuery:
+        if self.mode != "oql":
+            return self
+        normalized = " ".join(self.query.lower().split())
+        if normalized != "works" and not normalized.startswith("works where "):
+            raise ValueError("OpenAlex OQL must select works")
+        if " group by " in f" {normalized} ":
+            raise ValueError("OpenAlex grouped OQL does not return SearchHit rows")
+        if self.recency_days is not None:
+            raise ValueError("express recency inside the OQL query")
+        return self
 
 
 class SearchHit(BaseModel):

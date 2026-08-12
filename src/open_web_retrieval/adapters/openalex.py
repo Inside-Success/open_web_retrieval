@@ -6,11 +6,16 @@ full text is actually reachable (an open-access PDF or landing page), so a
 consumer never mints a citation it cannot later fetch and verify. The
 reconstructed abstract rides ``raw_payload["raw_content"]`` so fetch-fallback
 consumers have verifiable text even when the PDF fetch fails.
+
+Synchronized by source from ``BrianMills2718/open_web_retrieval`` accepted
+commit ``9ba4fe5dffb103af28566393fc38cf67af5d71a9``. Repository histories remain
+independent.
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import httpx
 
@@ -20,9 +25,10 @@ from open_web_retrieval.exceptions import (
     OpenWebRetrievalError,
     RetrievalError,
 )
-from open_web_retrieval.models import SearchHit, SearchQuery
+from open_web_retrieval.models import OpenAlexQuery, SearchHit, SearchQuery
 
 _BASE_URL = "https://api.openalex.org/works"
+_OQL_URL = "https://api.openalex.org/"
 _SELECT = (
     "id,title,doi,publication_date,relevance_score,"
     "best_oa_location,primary_location,abstract_inverted_index"
@@ -60,11 +66,13 @@ class OpenAlexSearchAdapter(SearchAdapter):
     def __init__(
         self,
         mailto: str | None = None,
+        api_key: str | None = None,
         timeout_seconds: float = 15.0,
         client: httpx.Client | None = None,
     ) -> None:
         """``mailto`` opts into OpenAlex's polite pool (recommended, optional)."""
         self.mailto = mailto
+        self.api_key = api_key or None
         if client is not None:
             self.client = client
             self._owns_client = False
@@ -73,7 +81,10 @@ class OpenAlexSearchAdapter(SearchAdapter):
             self._owns_client = True
 
     def search(self, query: SearchQuery) -> list[SearchHit]:
-        """Execute an OpenAlex works search; OA-gated normalized results."""
+        """Execute keyword, native semantic, or works-only OQL search."""
+        openalex_query = (
+            query if isinstance(query, OpenAlexQuery) else OpenAlexQuery(**query.model_dump())
+        )
         if query.retrieval_instruction is not None:
             raise CapabilityNotSupportedError(
                 "OpenAlex does not support retrieval_instruction",
@@ -84,21 +95,43 @@ class OpenAlexSearchAdapter(SearchAdapter):
                 "OpenAlex does not support domain filters",
                 context={"provider": self.provider_name, "query": query.query},
             )
+        search_parameter = (
+            "search.semantic" if openalex_query.mode == "semantic" else "search"
+        )
+        filters = ["is_oa:true"]
+        if openalex_query.recency_days is not None:
+            cutoff = datetime.now(timezone.utc).date() - timedelta(
+                days=openalex_query.recency_days
+            )
+            filters.append(f"from_publication_date:{cutoff.isoformat()}")
         params: dict[str, str] = {
-            "search": query.query,
-            "per-page": str(min(max(query.top_k * 2, 5), 50)),  # over-fetch: OA gate prunes
+            search_parameter: openalex_query.query,
+            "filter": ",".join(filters),
+            "per-page": str(min(max(openalex_query.top_k * 2, 5), 100)),
             "select": _SELECT,
         }
         if self.mailto:
             params["mailto"] = self.mailto
-        if query.recency_days is not None:
-            cutoff = datetime.now(timezone.utc).date().toordinal() - int(query.recency_days)
-            params["filter"] = (
-                f"from_publication_date:{datetime.fromordinal(cutoff).date().isoformat()}"
-            )
+        headers = (
+            {"Authorization": f"Bearer {self.api_key}"} if self.api_key else None
+        )
 
         try:
-            response = self.client.get(_BASE_URL, params=params)
+            with self.paced():
+                if openalex_query.mode == "oql":
+                    response = self.client.post(
+                        _OQL_URL,
+                        json={
+                            "oql": openalex_query.query,
+                            "select": _SELECT,
+                            "per_page": min(max(openalex_query.top_k * 2, 5), 100),
+                        },
+                        headers=headers,
+                    )
+                else:
+                    response = self.client.get(
+                        _BASE_URL, params=params, headers=headers
+                    )
             response.raise_for_status()
         except httpx.TimeoutException as exc:
             raise OpenWebRetrievalError(
@@ -116,7 +149,26 @@ class OpenAlexSearchAdapter(SearchAdapter):
                 context={"provider": self.provider_name, "query": query.query},
             ) from exc
 
-        raw_results = response.json().get("results", [])
+        try:
+            response_payload = response.json()
+        except ValueError as exc:
+            raise RetrievalError(
+                "OpenAlex returned invalid JSON",
+                context={"provider": self.provider_name, "query": query.query},
+            ) from exc
+        if not isinstance(response_payload, dict) or not isinstance(
+            response_payload.get("results"), list
+        ):
+            raise RetrievalError(
+                "OpenAlex response did not contain a results list",
+                context={"provider": self.provider_name, "query": query.query},
+            )
+        raw_results = response_payload.get("results", [])
+        meta: dict[str, Any] = (
+            response_payload.get("meta", {})
+            if isinstance(response_payload.get("meta"), dict)
+            else {}
+        )
         hits: list[SearchHit] = []
         rank = 0
         for result in raw_results:
@@ -138,6 +190,11 @@ class OpenAlexSearchAdapter(SearchAdapter):
             payload.pop("abstract_inverted_index", None)
             if len(abstract) > 100:
                 payload["raw_content"] = abstract
+            payload["_openalex_meta"] = {
+                "mode": openalex_query.mode,
+                "cost_usd": meta.get("cost_usd"),
+                "x_query": meta.get("x_query"),
+            }
             rank += 1
             hits.append(
                 SearchHit(

@@ -2,26 +2,34 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from open_web_retrieval.adapters.base import SearchAdapter, SearchAdapterFactory
 from open_web_retrieval.adapters.arxiv import ArxivSearchAdapter
+from open_web_retrieval.adapters.base import SearchAdapter, SearchAdapterFactory
+from open_web_retrieval.adapters.brave import BraveSearchAdapter
+from open_web_retrieval.adapters.exa import ExaSearchAdapter
 from open_web_retrieval.adapters.hackernews import HackerNewsSearchAdapter
 from open_web_retrieval.adapters.openalex import OpenAlexSearchAdapter
 from open_web_retrieval.adapters.reddit import RedditSearchAdapter
-from open_web_retrieval.adapters.brave import BraveSearchAdapter
-from open_web_retrieval.adapters.exa import ExaSearchAdapter
 from open_web_retrieval.adapters.searxng import SearxNGSearchAdapter
 from open_web_retrieval.adapters.tavily import TavilySearchAdapter
 from open_web_retrieval.cache import DiskCache
-from open_web_retrieval.exceptions import OpenWebRetrievalError, ProviderUnavailableError
+from open_web_retrieval.exceptions import (
+    OpenWebRetrievalError,
+    ProviderUnavailableError,
+)
 from open_web_retrieval.fetch_extract import SourceFetcher
-from open_web_retrieval.models import ExtractedDocument, FetchRequest, SearchHit, SearchQuery, SourceRecord
+from open_web_retrieval.models import (
+    ExtractedDocument,
+    FetchRequest,
+    SearchHit,
+    SearchQuery,
+    SourceRecord,
+)
 from open_web_retrieval.observability import (
     ToolCallLogger,
     compact_query_target,
@@ -66,6 +74,7 @@ class OpenWebRetrievalClient:
         tavily_api_key: str | None = None,
         enable_openalex: bool = False,
         openalex_mailto: str | None = None,
+        openalex_api_key: str | None = None,
         enable_hackernews: bool = False,
         enable_arxiv: bool = False,
         arxiv_contact: str | None = None,
@@ -112,7 +121,11 @@ class OpenWebRetrievalClient:
                 # Keyless scholarly search (OA-gated). OPT-IN so default
                 # provider sets are unchanged for existing consumers.
                 configured_adapters.append(
-                    OpenAlexSearchAdapter(mailto=openalex_mailto, timeout_seconds=timeout_seconds or 15.0),
+                    OpenAlexSearchAdapter(
+                        mailto=openalex_mailto,
+                        api_key=openalex_api_key,
+                        timeout_seconds=timeout_seconds or 15.0,
+                    ),
                 )
             if enable_hackernews:
                 # Keyless, source-TARGETED: HN's own index. OPT-IN so default
@@ -192,7 +205,8 @@ class OpenWebRetrievalClient:
             "search:"
             f"{provider}:{query.query}:top_k={query.top_k}:recency={query.recency_days}"
             f":depth={query.search_depth}:detail={query.result_detail}:budget={query.detail_budget}"
-            f":corpus={query.corpus}:allow={','.join(query.domains_allow)}:deny={','.join(query.domains_deny)}"
+            f":corpus={query.corpus}:mode={getattr(query, 'mode', None)}"
+            f":allow={','.join(query.domains_allow)}:deny={','.join(query.domains_deny)}"
         )
 
     @boundary(

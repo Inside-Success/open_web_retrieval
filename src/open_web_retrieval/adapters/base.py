@@ -38,6 +38,8 @@ _PROVIDER_LIMITS: dict[str, tuple[int, int]] = {
     # hit concurrently. Serialized deliberately - this one is a courtesy
     # obligation to a free academic service, not a technical ceiling.
     "arxiv": (18, 1),
+    # Native semantic search is limited to one request per second.
+    "openalex": (60, 1),
 }
 
 

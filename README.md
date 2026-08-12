@@ -36,9 +36,9 @@ cherry-picks.
 
 This package does not declare the private upstream as a runtime dependency.
 Both repositories currently use the same distribution/import name, and public
-CI must remain installable without private Git credentials. Reddit, OpenAlex,
-and embeddings remain explicit downstream-only overlays until separately
-accepted upstream.
+CI must remain installable without private Git credentials. OpenAlex is now an
+accepted shared source port from the canonical upstream. Reddit and embeddings
+remain explicit downstream-only overlays until separately accepted upstream.
 
 Suggested reading order:
 
