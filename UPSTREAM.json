@@ -2,19 +2,19 @@
   "schema_version": 1,
   "relationship": "source_overlay_downstream",
   "canonical_upstream": "BrianMills2718/open_web_retrieval",
-  "upstream_revision": "ea48b5d1a720a4b67ba365ac30ca62b5596aed8a",
-  "accepted_source_commit": "9ba4fe5dffb103af28566393fc38cf67af5d71a9",
-  "upstream_version": "0.10.0",
+  "upstream_revision": "402d0d4f575ff6df600f6ee63b15b013d16b0e84",
+  "accepted_source_commit": "1b0dcd60c17ff3fb7520b8a8da88c1696248e662",
+  "upstream_version": "0.11.0",
   "runtime_dependency": false,
   "runtime_dependency_reason": "Both repositories currently publish the same distribution and import namespace, and the canonical upstream is private while this downstream is public.",
   "accepted_shared_capabilities": [
     "hackernews_search",
     "arxiv_search",
     "provider_throttling",
-    "openalex_search"
+    "openalex_search",
+    "reddit_search"
   ],
   "downstream_only_capabilities": [
-    "reddit_search",
     "embeddings_helpers"
   ],
   "excluded_dependencies": [
