@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "relationship": "source_overlay_downstream",
+  "canonical_upstream": "BrianMills2718/open_web_retrieval",
+  "upstream_revision": "cd29613c424d9ba9a119fa18af762f218b1b82ea",
+  "accepted_source_commit": "6d177d3d7d393110f9dc6526d447073f2f57c0b3",
+  "upstream_version": "0.9.0",
+  "runtime_dependency": false,
+  "runtime_dependency_reason": "Both repositories currently publish the same distribution and import namespace, and the canonical upstream is private while this downstream is public.",
+  "accepted_shared_capabilities": [
+    "hackernews_search",
+    "arxiv_search",
+    "provider_throttling"
+  ],
+  "downstream_only_capabilities": [
+    "reddit_search",
+    "openalex_search",
+    "embeddings_helpers"
+  ],
+  "excluded_dependencies": [
+    "llm-client"
+  ],
+  "sync_rules": [
+    "Do not merge or cherry-pick histories between the repositories.",
+    "Port shared source changes through reviewed commits with provenance.",
+    "Keep company-only capabilities isolated until separately accepted upstream.",
+    "Do not make public installation depend on private Git credentials."
+  ]
+}

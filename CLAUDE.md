@@ -1,9 +1,10 @@
 # open_web_retrieval - Canonical Repo Instructions
 
 **Version:** 0.8.0
-**Last verified:** 2026-04-01
+**Last verified:** 2026-08-12
 
-This repo is the shared open-web retrieval boundary.
+This repo is Inside Success's public source-overlay downstream of the reusable
+canonical upstream pinned in `UPSTREAM.json`.
 
 ## Purpose
 
@@ -35,7 +36,10 @@ Workflow: `.github/workflows/test.yml`
 
 ## Principles
 
-- `open_web_retrieval` is the one canonical place for reusable open-web retrieval primitives.
+- `BrianMills2718/open_web_retrieval` is the canonical reusable upstream;
+  this repository owns only explicit company overlays and a reviewed source pin.
+- Do not merge or cherry-pick the independent repository histories.
+- Do not make public installation depend on private Git credentials.
 - Domain repos should consume these primitives before hand-rolling web search, fetch, render, or extraction logic.
 - Keep the API intentionally small; avoid speculative abstractions.
 - Fail loudly by default. If partial-failure mode is used, it must be explicit.
@@ -56,7 +60,10 @@ Workflow: `.github/workflows/test.yml`
 ## Dependencies
 
 - **Required:** `httpx`, `pydantic`
-- **Optional:** `trafilatura` (`[extract]`), `playwright` (`[render]`), `crawl4ai` (`[antibot]`), `llm_client` (`[tools]` -- provides `@tool` decorator for search adapter registration)
+- **Optional:** `trafilatura` (`[extract]`), `playwright` (`[render]`), and
+  `crawl4ai` (`[antibot]`). Tool registration requires a separately authorized
+  private `llm_client` source checkout; never install the unrelated public PyPI
+  `llm-client` distribution.
 - **Observability:** `tool_call_logger` is a `Protocol`-based callable. When `llm_client` is installed, its tool-call logger is directly compatible.
 
 ## References
@@ -70,3 +77,4 @@ Workflow: `.github/workflows/test.yml`
 | `src/open_web_retrieval/models.py` | Schema contract |
 | `src/open_web_retrieval/client.py` | Retrieval orchestration |
 | `README.md` | Usage examples and observability setup |
+| `UPSTREAM.json` | Immutable upstream revision, overlay boundary, and synchronization rules |

@@ -1,7 +1,7 @@
 # open_web_retrieval — Requirements
 
 **Status**: Active
-**Last updated**: 2026-03-26
+**Last updated**: 2026-08-12
 **Owner**: Brian Mills
 
 ---
@@ -12,6 +12,10 @@ A shared Python library that gives any project the ability to search the web,
 fetch pages, and extract clean text — with provenance, error classification,
 and configurable resilience. It's shared infrastructure per the root CLAUDE.md:
 "general capabilities any project uses."
+
+This repository is the public Inside Success source-overlay downstream. The
+canonical reusable upstream and reviewed source revision are pinned in
+`UPSTREAM.json`; no private Git dependency is required for public installation.
 
 ## What This Is NOT
 
@@ -80,7 +84,7 @@ and configurable resilience. It's shared infrastructure per the root CLAUDE.md:
 | Full pipeline (search → fetch → extract) | **Shipped** | Via `OpenWebRetrievalClient` |
 | Provenance on every operation | **Shipped** | Provider, URL, method, timestamps |
 | Pydantic models for all contracts | **Shipped** | Frozen, validated |
-| pip-installable | **Shipped** | `pip install -e ~/projects/open_web_retrieval` |
+| pip-installable | **Shipped** | Fresh clone installs with `python -m pip install -e .` without private Git credentials |
 | Context manager protocol | **Shipped** | `with SourceFetcher() as f:` and `with OpenWebRetrievalClient() as c:` (v0.6) |
 | Async support | **Shipped** | `AsyncSourceFetcher`, `AsyncOpenWebRetrievalClient` (v0.6) |
 | Cache hardening | **Shipped** | File locking, LRU eviction, `max_entries`, cache stats (v0.6) |
@@ -110,7 +114,8 @@ The library fails if:
 
 ## Priority Order
 
-All priorities shipped as of v0.6. See ROADMAP.md for version history.
+The downstream dependency and source-lineage contract is current through the
+revision pinned in `UPSTREAM.json`. See ROADMAP.md for version history.
 
 ---
 
