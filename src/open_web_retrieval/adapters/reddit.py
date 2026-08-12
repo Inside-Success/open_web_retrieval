@@ -72,11 +72,25 @@ class RedditSearchAdapter(SearchAdapter):
         client: httpx.Client | None = None,
     ) -> None:
         """Credentials fall back to the environment when not passed explicitly."""
-        self.client_id = client_id or os.environ.get("REDDIT_CLIENT_ID", "")
-        self.client_secret = client_secret or os.environ.get("REDDIT_CLIENT_SECRET", "")
-        self.username = username or os.environ.get("REDDIT_USERNAME", "")
-        self.password = password or os.environ.get("REDDIT_PASSWORD", "")
-        self.user_agent = user_agent or os.environ.get("REDDIT_USER_AGENT", _DEFAULT_UA)
+        self.client_id = (
+            os.environ.get("REDDIT_CLIENT_ID", "") if client_id is None else client_id
+        )
+        self.client_secret = (
+            os.environ.get("REDDIT_CLIENT_SECRET", "")
+            if client_secret is None
+            else client_secret
+        )
+        self.username = (
+            os.environ.get("REDDIT_USERNAME", "") if username is None else username
+        )
+        self.password = (
+            os.environ.get("REDDIT_PASSWORD", "") if password is None else password
+        )
+        self.user_agent = (
+            os.environ.get("REDDIT_USER_AGENT", _DEFAULT_UA)
+            if user_agent is None
+            else user_agent
+        )
         self._token: str | None = None
         self._token_expires_at = 0.0
         if client is not None:
