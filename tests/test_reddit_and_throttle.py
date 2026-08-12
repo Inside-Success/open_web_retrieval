@@ -178,12 +178,24 @@ class TestRedditAuth:
     def test_missing_credentials_named_explicitly(self):
         from open_web_retrieval.adapters.reddit import RedditSearchAdapter
 
-        adapter = RedditSearchAdapter(client_id="", client_secret="s",
-                                      username="", password="p")
+        requests = []
+
+        def handler(req):
+            requests.append(req)
+            return httpx.Response(500, request=req)
+
+        adapter = RedditSearchAdapter(
+            client_id="",
+            client_secret="s",
+            username="",
+            password="p",
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
         with pytest.raises(ProviderUnavailableError) as exc:
             adapter.search(SearchQuery(query="q", providers=("reddit",)))
         assert "REDDIT_CLIENT_ID" in str(exc.value)
         assert "REDDIT_USERNAME" in str(exc.value)
+        assert requests == []
 
     def test_401_blames_the_app_credentials(self):
         """Reddit returns 401 when CLIENT_ID/SECRET are wrong."""
@@ -393,7 +405,5 @@ class TestSubredditScoping:
         import pytest
 
         from open_web_retrieval.adapters.reddit import RedditSearchAdapter
-        from open_web_retrieval.exceptions import CapabilityNotSupportedError
-
         with pytest.raises(CapabilityNotSupportedError):
             RedditSearchAdapter().search(self._q(domains_deny=("spam.com",)))
