@@ -4,17 +4,20 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Mapping
 from pathlib import Path
 
 from open_web_retrieval.adapters.base import SearchAdapter, SearchAdapterFactory
 from open_web_retrieval.adapters.brave import BraveSearchAdapter
+from open_web_retrieval.adapters.openalex import OpenAlexSearchAdapter
 from open_web_retrieval.adapters.searxng import SearxNGSearchAdapter
 from open_web_retrieval.async_fetch import AsyncSourceFetcher
 from open_web_retrieval.cache import DiskCache
 from open_web_retrieval.client import SourceRecordBatch
-from open_web_retrieval.exceptions import OpenWebRetrievalError, ProviderUnavailableError
+from open_web_retrieval.exceptions import (
+    OpenWebRetrievalError,
+    ProviderUnavailableError,
+)
 from open_web_retrieval.models import (
     ExtractedDocument,
     FetchRequest,
@@ -48,6 +51,8 @@ class AsyncOpenWebRetrievalClient:
         *,
         brave_api_key: str | None = None,
         searxng_base_url: str | None = None,
+        enable_openalex: bool = False,
+        openalex_api_key: str | None = None,
         timeout_seconds: float | None = None,
         adapters: Mapping[str, SearchAdapter] | None = None,
         cache_dir: str | Path | None = None,
@@ -88,11 +93,18 @@ class AsyncOpenWebRetrievalClient:
                         base_url=searxng_base_url, timeout_seconds=timeout_seconds,
                     ),
                 )
+            if enable_openalex:
+                configured_adapters.append(
+                    OpenAlexSearchAdapter(
+                        api_key=openalex_api_key,
+                        timeout_seconds=timeout_seconds or 15.0,
+                    )
+                )
 
         if not configured_adapters:
             raise ProviderUnavailableError(
                 "no search providers configured",
-                context={"reason": "provide brave_api_key and/or searxng_base_url"},
+                context={"reason": "provide brave_api_key, searxng_base_url, or enable_openalex"},
             )
 
         self.adapters = SearchAdapterFactory(list(configured_adapters))
@@ -124,7 +136,8 @@ class AsyncOpenWebRetrievalClient:
             "search:"
             f"{provider}:{query.query}:top_k={query.top_k}:recency={query.recency_days}"
             f":depth={query.search_depth}:detail={query.result_detail}:budget={query.detail_budget}"
-            f":corpus={query.corpus}:allow={','.join(query.domains_allow)}:deny={','.join(query.domains_deny)}"
+            f":corpus={query.corpus}:mode={getattr(query, 'mode', None)}"
+            f":allow={','.join(query.domains_allow)}:deny={','.join(query.domains_deny)}"
         )
 
     async def search(

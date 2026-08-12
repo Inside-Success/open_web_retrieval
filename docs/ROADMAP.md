@@ -57,9 +57,10 @@ provider-level ranking guidance. Exa maps it to `systemPrompt`; unsupported
 providers fail loud instead of silently ignoring it. Plan #16 complete.
 
 **Downstream reconciliation (2026-08-12):** Declares the canonical personal
-upstream and immutable accepted revision in `UPSTREAM.json`, retains Reddit,
-OpenAlex, and embeddings as company overlays, and removes the unrelated public
-`llm-client` distribution from install and test dependencies.
+upstream and immutable accepted revision in `UPSTREAM.json`, accepts the
+reviewed OpenAlex keyword/semantic/OQL source port, retains Reddit and
+embeddings as company overlays, and excludes the unrelated public `llm-client`
+distribution from install and test dependencies.
 
 **What's next:** v1.0 (shareable library) is still gated on ROADMAP Phase 4. The
 shared retrieval control surface is now typed and verified for Tavily and Exa,

@@ -27,7 +27,10 @@ Usage::
 from __future__ import annotations
 
 import asyncio
+import json
+import os
 from collections.abc import Sequence
+from typing import cast
 
 from llm_client.tools import tool
 
@@ -42,9 +45,15 @@ except ImportError:
 
 from open_web_retrieval.adapters.brave import BraveSearchAdapter
 from open_web_retrieval.adapters.exa import ExaSearchAdapter
+from open_web_retrieval.adapters.openalex import OpenAlexSearchAdapter
 from open_web_retrieval.adapters.searxng import SearxNGSearchAdapter
 from open_web_retrieval.adapters.tavily import TavilySearchAdapter
-from open_web_retrieval.models import SearchHit, SearchQuery
+from open_web_retrieval.models import (
+    OpenAlexQuery,
+    OpenAlexSearchMode,
+    SearchHit,
+    SearchQuery,
+)
 
 
 @tool(
@@ -221,3 +230,110 @@ async def exa_search(
         return await asyncio.to_thread(adapter.search, search_query)
     finally:
         adapter.close()
+
+
+@tool(
+    name="openalex_search",
+    domain="web",
+    description=(
+        "Search fetchable open-access scholarly works in OpenAlex. Use keyword "
+        "for precise terms, semantic for conceptual discovery, and oql for a "
+        "works-only query with field, date, or Boolean constraints."
+    ),
+    cost_tier="free",
+    goal="research-quality",
+    complexity=2,
+    designed_for=(
+        "Contextual scholarly discovery through keyword, semantic, or structured OQL search"
+    ),
+    result_type=SearchHit,
+)
+@boundary(
+    name="open_web_retrieval.openalex_search",
+    version="0.1.0",
+    producer="open_web_retrieval",
+)
+async def openalex_search(
+    query: str,
+    *,
+    mode: str = "keyword",
+    top_k: int = 10,
+    recency_days: int | None = None,
+    timeout_seconds: float | None = None,
+) -> list[SearchHit]:
+    """Search OpenAlex using the caller-selected provider-native query mode."""
+
+    search_query = OpenAlexQuery(
+        query=query,
+        mode=cast(OpenAlexSearchMode, mode),
+        top_k=top_k,
+        recency_days=recency_days,
+    )
+    adapter = OpenAlexSearchAdapter(
+        api_key=os.environ.get("OPENALEX_API_KEY") or None,
+        timeout_seconds=timeout_seconds or 15.0,
+    )
+    try:
+        return await asyncio.to_thread(adapter.search, search_query)
+    finally:
+        adapter.close()
+
+
+openalex_search.__tool_input_examples__ = [
+    {
+        "query": "how people decide to share conspiracy claims online",
+        "mode": "semantic",
+        "top_k": 5,
+    },
+    {
+        "query": "works where title/abstract has (conspiracy drivers in social media) and year >= (2020)",
+        "mode": "oql",
+        "top_k": 10,
+    },
+]
+
+
+async def openalex_agent_tool(
+    query: str,
+    *,
+    mode: str = "keyword",
+    top_k: int = 10,
+    timeout_seconds: float | None = None,
+) -> str:
+    """Search OpenAlex with agent-selected keyword, semantic, or works-only OQL.
+
+    Use keyword for exact text, semantic for conceptual discovery, and OQL for
+    field/date/nested Boolean constraints. OQL must begin with ``works`` and
+    cannot group results. Put date constraints in OQL, for example
+    ``and year >= (2020)``.
+    """
+
+    result = await openalex_search(
+        query=query,
+        mode=mode,
+        top_k=top_k,
+        timeout_seconds=timeout_seconds,
+    )
+    if not result.success:
+        raise RuntimeError(result.error or "OpenAlex search failed")
+    compact_hits = []
+    for hit in result.data or []:
+        metadata = hit.raw_payload.get("_openalex_meta", {}) if hit.raw_payload else {}
+        compact_hits.append(
+            {
+                "provider": hit.provider,
+                "mode": metadata.get("mode"),
+                "query": hit.query,
+                "title": hit.title,
+                "url": hit.url,
+                "snippet": hit.snippet,
+                "publisher": hit.publisher,
+                "published_at": hit.published_at.isoformat() if hit.published_at else None,
+                "rank": hit.rank,
+            }
+        )
+    return json.dumps(compact_hits, ensure_ascii=False)
+
+
+openalex_agent_tool.__name__ = "openalex_search"
+openalex_agent_tool.__tool_input_examples__ = openalex_search.__tool_input_examples__
