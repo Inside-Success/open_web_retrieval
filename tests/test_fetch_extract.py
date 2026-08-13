@@ -755,6 +755,114 @@ class TestAntibotEscalation:
         assert fetcher.metrics.escalated == 1
 
 
+class TestAccessChallengeFallback:
+    """Cloudflare-like interstitial classification and safe fallback."""
+
+    @staticmethod
+    def _resource(content: bytes = b"retrieved public content") -> FetchedResource:
+        return FetchedResource(
+            requested_url="https://protected.example.com/page",
+            final_url="https://protected.example.com/page",
+            status=200,
+            content_type="text/markdown",
+            content_bytes=content,
+            retrieved_at_utc=datetime(2026, 8, 13, tzinfo=timezone.utc),
+            fetch_method="jina_reader",
+            sha256="fallback",
+        )
+
+    def test_http_200_challenge_uses_jina(self) -> None:
+        import unittest.mock
+
+        transport = httpx.MockTransport(
+            lambda request: httpx.Response(
+                200,
+                headers={"content-type": "text/html"},
+                content=b"<html>Just a moment...<script src='/cdn-cgi/challenge-platform/x'></script></html>",
+                request=request,
+            )
+        )
+        reader = unittest.mock.MagicMock()
+        reader.fetch.return_value = self._resource()
+        fetcher = SourceFetcher(
+            client=httpx.Client(transport=transport),
+            rate_limit_per_second=0,
+            enable_jina_fallback=True,
+            jina_reader=reader,
+        )
+
+        result = fetcher.fetch(FetchRequest(url="https://protected.example.com/page"))
+
+        assert result.fetch_method == "jina_reader"
+
+    def test_explicit_captcha_is_terminal_without_jina(self) -> None:
+        import unittest.mock
+
+        transport = httpx.MockTransport(
+            lambda request: httpx.Response(
+                200,
+                headers={"content-type": "text/html"},
+                content=b"<html><div class='g-recaptcha'>Verify you are human</div></html>",
+                request=request,
+            )
+        )
+        reader = unittest.mock.MagicMock()
+        fetcher = SourceFetcher(
+            client=httpx.Client(transport=transport),
+            rate_limit_per_second=0,
+            enable_jina_fallback=True,
+            jina_reader=reader,
+        )
+
+        with pytest.raises(FetchError) as exc_info:
+            fetcher.fetch(FetchRequest(url="https://protected.example.com/page"))
+
+        assert exc_info.value.block_reason == "captcha_required"
+        reader.fetch.assert_not_called()
+
+    def test_jina_challenge_payload_cannot_masquerade_as_success(self) -> None:
+        import unittest.mock
+
+        transport = httpx.MockTransport(
+            lambda request: httpx.Response(
+                503,
+                headers={"content-type": "text/html"},
+                content=b"<html>Checking your browser</html>",
+                request=request,
+            )
+        )
+        reader = unittest.mock.MagicMock()
+        reader.fetch.return_value = self._resource(
+            b"## Performing security verification\nProtect against malicious bots"
+        )
+        fetcher = SourceFetcher(
+            client=httpx.Client(transport=transport),
+            rate_limit_per_second=0,
+            enable_jina_fallback=True,
+            jina_reader=reader,
+        )
+
+        with pytest.raises(FetchError) as exc_info:
+            fetcher.fetch(FetchRequest(url="https://protected.example.com/page"))
+
+        assert exc_info.value.block_reason == "challenge_detected"
+
+    def test_403_exposes_typed_access_denied(self) -> None:
+        fetcher = SourceFetcher(
+            client=httpx.Client(
+                transport=httpx.MockTransport(
+                    lambda request: httpx.Response(403, request=request)
+                )
+            ),
+            rate_limit_per_second=0,
+        )
+
+        with pytest.raises(FetchError) as exc_info:
+            fetcher.fetch(FetchRequest(url="https://protected.example.com/page"))
+
+        assert exc_info.value.block_reason == "access_denied"
+
+
 class TestSPADetection:
     """Tests for JS-rendered SPA detection and auto-render escalation."""
 

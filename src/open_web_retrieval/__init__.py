@@ -1,6 +1,7 @@
 """open_web_retrieval package exports."""
 
 from open_web_retrieval._version import __version__
+from open_web_retrieval.adapters.jina import JinaReaderAdapter
 from open_web_retrieval.adapters.openalex import OpenAlexSearchAdapter
 from open_web_retrieval.async_client import AsyncOpenWebRetrievalClient
 from open_web_retrieval.async_fetch import AsyncSourceFetcher
@@ -39,6 +40,7 @@ __all__ = [
     "FetchMetrics",
     "FetchRequest",
     "FetchedResource",
+    "JinaReaderAdapter",
     "OpenAlexQuery",
     "OpenAlexSearchAdapter",
     "OpenAlexSearchMode",

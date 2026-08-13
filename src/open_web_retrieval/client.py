@@ -87,6 +87,7 @@ class OpenWebRetrievalClient:
         rate_limit_per_second: float = 2.0,
         tool_call_logger: ToolCallLogger | None = None,
         enable_antibot: bool = False,
+        enable_jina_fallback: bool = False,
         enable_auto_render: bool = True,
         search_log_path: str | Path | None = None,
     ) -> None:
@@ -102,6 +103,8 @@ class OpenWebRetrievalClient:
                 Set to 0 to disable. Passed through to SourceFetcher.
             enable_antibot: If True, escalate 403 responses to browser-based
                 fetch via Crawl4AI. Requires crawl4ai to be installed.
+            enable_jina_fallback: If True, try Jina Reader after eligible
+                public-page access blocks and any Crawl4AI failure.
         """
         configured_adapters: list[SearchAdapter] = []
         if adapters is not None:
@@ -162,6 +165,7 @@ class OpenWebRetrievalClient:
             rate_limit_per_second=rate_limit_per_second,
             tool_call_logger=tool_call_logger,
             enable_antibot=enable_antibot,
+            enable_jina_fallback=enable_jina_fallback,
             enable_auto_render=enable_auto_render,
         )
         self.default_providers = tuple(self.adapters.adapters.keys())

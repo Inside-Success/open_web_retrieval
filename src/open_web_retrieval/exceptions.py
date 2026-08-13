@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
+FetchBlockReason = Literal["access_denied", "challenge_detected", "captcha_required"]
+
 
 class OpenWebRetrievalError(RuntimeError):
     """Base class for all retrieval-layer failures."""
@@ -41,10 +45,12 @@ class FetchError(OpenWebRetrievalError):
         message: str,
         *,
         retryable: bool = True,
+        block_reason: FetchBlockReason | None = None,
         context: dict[str, object] | None = None,
     ) -> None:
         super().__init__(message, context=context)
         self.retryable = retryable
+        self.block_reason = block_reason
 
 
 class RenderError(OpenWebRetrievalError):
