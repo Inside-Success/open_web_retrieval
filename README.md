@@ -37,8 +37,9 @@ cherry-picks.
 This package does not declare the private upstream as a runtime dependency.
 Both repositories currently use the same distribution/import name, and public
 CI must remain installable without private Git credentials. OpenAlex and Reddit
-are accepted shared source ports from the canonical upstream. The embeddings
-helpers remain an explicit downstream-only overlay pending separate review.
+are accepted shared source ports from the canonical upstream. Embedding model
+execution belongs to the separately installed private `llm_client`; consumers
+own chunking, similarity policy, and vector storage.
 
 Suggested reading order:
 

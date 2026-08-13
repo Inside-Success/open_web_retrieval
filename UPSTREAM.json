@@ -14,9 +14,7 @@
     "openalex_search",
     "reddit_search"
   ],
-  "downstream_only_capabilities": [
-    "embeddings_helpers"
-  ],
+  "downstream_only_capabilities": [],
   "excluded_dependencies": [
     "llm-client"
   ],
