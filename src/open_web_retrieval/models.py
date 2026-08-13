@@ -38,6 +38,11 @@ ProviderName = Literal[
     # back by construction instead of depending on how a general index ranks it.
     "hackernews", "arxiv", "reddit",
 ]
+AccessAlternativeKind = Literal[
+    "official_api",
+    "official_raw",
+    "hosted_reader",
+]
 OpenAlexSearchMode = Literal["keyword", "semantic", "oql"]
 RenderMode = Literal["never", "auto", "always"]
 SearchDepth = Literal["basic", "advanced"]
@@ -173,6 +178,20 @@ class FetchRequest(BaseModel):
     render_mode: RenderMode = "auto"
     user_agent_profile: str = _DEFAULT_USER_AGENT
     max_bytes: int = Field(default=8_000_000, ge=1, le=50_000_000)
+
+    model_config = ConfigDict(frozen=True)
+
+
+class AccessAlternative(BaseModel):
+    """Advisory, provenance-preserving route for a blocked public URL."""
+
+    source_url: str
+    route_url: str
+    kind: AccessAlternativeKind
+    provider: str
+    requirements: tuple[str, ...] = ()
+    rationale: str
+    automatic: Literal[False] = False
 
     model_config = ConfigDict(frozen=True)
 

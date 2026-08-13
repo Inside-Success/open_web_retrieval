@@ -2,8 +2,8 @@
   "schema_version": 1,
   "relationship": "source_overlay_downstream",
   "canonical_upstream": "BrianMills2718/open_web_retrieval",
-  "upstream_revision": "0d555aad9401fac8d66b5ee7af80379614721f5a",
-  "accepted_source_commit": "81a934297b7822e9ef1ee3c94e368b23f8129ed1",
+  "upstream_revision": "42c8e5c67724551019ca9fa9cf74c2e5b31e011f",
+  "accepted_source_commit": "a883d6a3928b83d59aad027c1be7a3a83c934c7c",
   "upstream_version": "0.12.0",
   "runtime_dependency": false,
   "runtime_dependency_reason": "Both repositories currently publish the same distribution and import namespace, and the canonical upstream is private while this downstream is public.",
@@ -14,7 +14,9 @@
     "openalex_search",
     "reddit_search",
     "jina_reader_fetch",
-    "access_challenge_fallback"
+    "access_challenge_fallback",
+    "typed_access_alternatives",
+    "access_block_classifier"
   ],
   "downstream_only_capabilities": [],
   "excluded_dependencies": [

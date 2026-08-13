@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from open_web_retrieval.models import AccessAlternative
 
 FetchBlockReason = Literal["access_denied", "challenge_detected", "captcha_required"]
 
@@ -47,10 +51,26 @@ class FetchError(OpenWebRetrievalError):
         retryable: bool = True,
         block_reason: FetchBlockReason | None = None,
         context: dict[str, object] | None = None,
+        alternatives: Sequence[AccessAlternative] | None = None,
     ) -> None:
-        super().__init__(message, context=context)
+        resolved_alternatives = tuple(alternatives or ())
+        source_url = (context or {}).get("url")
+        if alternatives is None and block_reason is not None and isinstance(source_url, str):
+            from open_web_retrieval.access_alternatives import (
+                suggest_access_alternatives,
+            )
+
+            resolved_alternatives = suggest_access_alternatives(source_url, block_reason)
+        enriched_context = dict(context or {})
+        if resolved_alternatives:
+            enriched_context["alternatives"] = [
+                alternative.model_dump(mode="json")
+                for alternative in resolved_alternatives
+            ]
+        super().__init__(message, context=enriched_context)
         self.retryable = retryable
         self.block_reason = block_reason
+        self.alternatives = resolved_alternatives
 
 
 class RenderError(OpenWebRetrievalError):

@@ -147,6 +147,7 @@ for record in batch.records:
 | **Rate limiting** | Per-domain (default 2 req/s). Respects `Retry-After` header on 429. |
 | **Extract** | Plain text and markdown via trafilatura. Title, author, date, sitename metadata. |
 | **Render** | Optional Playwright plus opt-in Crawl4AI→Jina challenge fallback. Explicit CAPTCHAs never escalate. |
+| **Blocked alternatives** | Terminal `FetchError` values expose typed, advisory official API/raw or hosted-reader routes when deterministically available. Alternatives never execute automatically. |
 | **Provenance** | Every `SourceRecord` tracks provider, URL lineage, fetch method, extraction method. |
 | **Caching** | Optional disk cache for search results and fetched pages (TTL-based). |
 | **Observability** | `FetchMetrics` counters: fetched, skipped_blocked, skipped_permanent, retried, failed, total_wait_seconds. |
@@ -161,6 +162,11 @@ from open_web_retrieval.exceptions import FetchError
 try:
     resource = client.fetcher.fetch(fetch_request)
 except FetchError as e:
+    if e.block_reason:
+        print(f"Access outcome: {e.block_reason}")
+        for alternative in e.alternatives:
+            # Advisory only: policy-owning caller decides whether to use it.
+            print(alternative.provider, alternative.route_url, alternative.requirements)
     if e.retryable:
         # 429, 5xx, timeout — try again later
         print(f"Transient: {e}")

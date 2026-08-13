@@ -11,6 +11,8 @@ This file is the canonical plan-index contract for `docs/plans/`.
 
 | # | Name | Priority | Status | Blocks |
 |---|------|----------|--------|--------|
+| 22 | [Public Access-Block Classifier](22_public_access_block_classifier.md) | High | ✅ Complete | truthful consumer execution of advisory routes |
+| 21 | [Typed Access Alternatives](21_access_alternatives.md) | High | ✅ Complete | agent-visible recovery from terminal blocks |
 | 1 | [Fetch Error Classification](01_fetch_resilience_and_crawl4ai.md) | High | ✅ Complete | - |
 | 2 | [Robust Fetch (v0.3)](02_robust_fetch.md) | High | ✅ Complete | 1 |
 | 3 | [Enhanced Extraction (v0.4)](03_enhanced_extraction.md) | Medium | ✅ Complete | 2 |

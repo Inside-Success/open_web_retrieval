@@ -1,6 +1,10 @@
 """open_web_retrieval package exports."""
 
 from open_web_retrieval._version import __version__
+from open_web_retrieval.access_alternatives import (
+    classify_access_block,
+    suggest_access_alternatives,
+)
 from open_web_retrieval.adapters.jina import JinaReaderAdapter
 from open_web_retrieval.adapters.openalex import OpenAlexSearchAdapter
 from open_web_retrieval.async_client import AsyncOpenWebRetrievalClient
@@ -17,6 +21,8 @@ from open_web_retrieval.exceptions import (
 )
 from open_web_retrieval.fetch_extract import SourceFetcher
 from open_web_retrieval.models import (
+    AccessAlternative,
+    AccessAlternativeKind,
     ExtractedDocument,
     FetchedResource,
     FetchMetrics,
@@ -30,6 +36,8 @@ from open_web_retrieval.models import (
 from open_web_retrieval.search_log import SearchLog
 
 __all__ = [
+    "AccessAlternative",
+    "AccessAlternativeKind",
     "AsyncOpenWebRetrievalClient",
     "AsyncSourceFetcher",
     "CacheStats",
@@ -56,6 +64,8 @@ __all__ = [
     "SourceRecord",
     "SourceRecordBatch",
     "__version__",
+    "classify_access_block",
+    "suggest_access_alternatives",
 ]
 
 # Auto-register @tool decorated functions
