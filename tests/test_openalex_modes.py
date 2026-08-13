@@ -7,6 +7,7 @@ import json
 import httpx
 import pytest
 
+from open_web_retrieval.adapters.base import ProviderThrottle
 from open_web_retrieval.adapters.openalex import OpenAlexSearchAdapter
 from open_web_retrieval.exceptions import RetrievalError
 from open_web_retrieval.models import OpenAlexQuery
@@ -24,13 +25,15 @@ def _result() -> dict[str, object]:
 
 
 class Recorder:
-    def __init__(self) -> None:
+    def __init__(self, *, statuses: list[int] | None = None) -> None:
         self.requests: list[httpx.Request] = []
+        self.statuses = list(statuses or [])
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
+        status = self.statuses.pop(0) if self.statuses else 200
         return httpx.Response(
-            200,
+            status,
             json={"meta": {"cost_usd": 0.001}, "results": [_result()]},
             request=request,
         )
@@ -40,6 +43,7 @@ def _adapter(recorder: Recorder, *, api_key: str | None = None) -> OpenAlexSearc
     return OpenAlexSearchAdapter(
         api_key=api_key,
         client=httpx.Client(transport=httpx.MockTransport(recorder)),
+        request_throttle=ProviderThrottle("openalex", requests_per_minute=0),
     )
 
 
@@ -82,6 +86,43 @@ def test_invalid_response_shape_fails_loudly() -> None:
     adapter = OpenAlexSearchAdapter(client=httpx.Client(transport=transport))
     with pytest.raises(RetrievalError, match="results list"):
         adapter.search(OpenAlexQuery(query="q"))
+
+
+def test_transient_504_retries_identical_query_once_then_succeeds() -> None:
+    recorder = Recorder(statuses=[504, 200])
+
+    hits = _adapter(recorder).search(
+        OpenAlexQuery(query="conspiracy sharing motives", mode="semantic", top_k=1)
+    )
+
+    assert len(recorder.requests) == 2
+    assert recorder.requests[0].url == recorder.requests[1].url
+    assert hits[0].provider == "openalex"
+
+
+def test_persistent_504_stops_after_one_retry() -> None:
+    recorder = Recorder(statuses=[504, 504])
+
+    with pytest.raises(RetrievalError) as exc_info:
+        _adapter(recorder).search(OpenAlexQuery(query="q", mode="semantic"))
+
+    assert len(recorder.requests) == 2
+    assert exc_info.value.context["status_code"] == 504
+
+
+def test_non_transient_400_is_not_retried() -> None:
+    recorder = Recorder(statuses=[400])
+
+    with pytest.raises(RetrievalError):
+        _adapter(recorder).search(OpenAlexQuery(query="q"))
+
+    assert len(recorder.requests) == 1
+
+
+@pytest.mark.parametrize("retries", [-1, 4])
+def test_retry_bound_rejects_invalid_values(retries: int) -> None:
+    with pytest.raises(ValueError, match="max_transient_retries"):
+        OpenAlexSearchAdapter(max_transient_retries=retries)
 
 
 @pytest.mark.parametrize(

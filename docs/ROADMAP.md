@@ -71,6 +71,11 @@ Independent Git history and public-install metadata remain downstream-owned.
 Jina Reader, and the opt-in Crawl4AI→Jina fallback ladder from canonical
 upstream. Explicit CAPTCHA, login, and paywall bypass remain out of scope.
 
+**OpenAlex resilience source sync (2026-08-13):** Accepts canonical upstream
+`5c724e48356adecffc9f446993d819eae6a4e8fb`. OpenAlex retries one identical,
+read-only query after a transport error or HTTP 5xx, with each attempt passing
+through shared provider pacing. Non-transient 4xx responses fail immediately.
+
 **What's next:** v1.0 (shareable library) is still gated on ROADMAP Phase 4. The
 shared retrieval control surface is now typed and verified for Tavily and Exa,
 including Exa retrieval instructions. The next justified provider work is only
