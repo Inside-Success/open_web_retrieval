@@ -28,9 +28,7 @@ def test_public_install_has_no_private_or_unrelated_runtime_dependency() -> None
 
 
 def test_company_only_capabilities_remain_explicit_overlays() -> None:
-    assert set(MANIFEST["downstream_only_capabilities"]) == {
-        "embeddings_helpers",
-    }
+    assert MANIFEST["downstream_only_capabilities"] == []
 
 
 def test_accepted_shared_capabilities_include_openalex_and_reddit() -> None:

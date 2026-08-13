@@ -58,9 +58,10 @@ providers fail loud instead of silently ignoring it. Plan #16 complete.
 
 **Downstream reconciliation (2026-08-12):** Declares the canonical personal
 upstream and immutable accepted revision in `UPSTREAM.json`, accepts the
-reviewed OpenAlex keyword/semantic/OQL and Reddit source ports, retains
-embeddings as a company overlay, and excludes the unrelated public
-`llm-client` distribution from install and test dependencies.
+reviewed OpenAlex keyword/semantic/OQL and Reddit source ports, delegates
+embedding model execution to the approved private `llm_client`, and excludes
+the unrelated public `llm-client` distribution from install and test
+dependencies.
 
 **What's next:** v1.0 (shareable library) is still gated on ROADMAP Phase 4. The
 shared retrieval control surface is now typed and verified for Tavily and Exa,
