@@ -50,6 +50,7 @@ canonical reusable upstream and reviewed source revision are pinned in
 | Domain allow/deny lists | **Shipped** | `domains_allow`, `domains_deny` |
 | Result deduplication across providers | **Shipped** | By URL, keep first occurrence (v0.4) |
 | Search result caching | **Shipped** | TTL-based via `cache.py` |
+| OpenAlex transient retry | **Shipped** | One paced retry of the identical read-only query after transport errors or HTTP 5xx; 4xx fails immediately |
 
 ### Fetch — retrieve page content from a URL
 

@@ -42,8 +42,12 @@ class OpenAlexSearchAdapter(SearchAdapter):
         timeout_seconds: float | None = 15.0,
         client: httpx.Client | None = None,
         request_throttle: ProviderThrottle | None = None,
+        max_transient_retries: int = 1,
     ) -> None:
-        """Configure optional bearer authentication, transport, and pacing."""
+        """Configure authentication, transport, pacing, and bounded retries."""
+
+        if not 0 <= max_transient_retries <= 3:
+            raise ValueError("max_transient_retries must be between 0 and 3")
 
         self.api_key = api_key or None
         self.client = client or httpx.Client(
@@ -52,6 +56,7 @@ class OpenAlexSearchAdapter(SearchAdapter):
         )
         self._owns_client = client is None
         self._provider_throttle = request_throttle
+        self.max_transient_retries = max_transient_retries
 
     def search(self, query: SearchQuery) -> list[SearchHit]:
         """Execute one keyword, semantic, or works-only OQL query."""
@@ -65,23 +70,7 @@ class OpenAlexSearchAdapter(SearchAdapter):
         )
 
         try:
-            with self.paced():
-                if openalex_query.mode == "oql":
-                    response = self.client.post(
-                        _OQL_URL,
-                        json={
-                            "oql": openalex_query.query,
-                            "select": _SELECT_FIELDS,
-                            "per_page": min(max(openalex_query.top_k * 2, 5), 100),
-                        },
-                        headers=headers,
-                    )
-                else:
-                    response = self.client.get(
-                        _WORKS_URL,
-                        params=_search_params(openalex_query),
-                        headers=headers,
-                    )
+            response = self._request_with_retry(openalex_query, headers=headers)
             response.raise_for_status()
             payload = response.json()
         except httpx.TimeoutException as exc:
@@ -138,6 +127,41 @@ class OpenAlexSearchAdapter(SearchAdapter):
             query=openalex_query,
             meta=meta,
         )
+
+    def _request_with_retry(
+        self,
+        query: OpenAlexQuery,
+        *,
+        headers: dict[str, str] | None,
+    ) -> httpx.Response:
+        """Retry an identical read-only query once on transport errors or 5xx."""
+
+        for attempt in range(self.max_transient_retries + 1):
+            try:
+                with self.paced():
+                    if query.mode == "oql":
+                        response = self.client.post(
+                            _OQL_URL,
+                            json={
+                                "oql": query.query,
+                                "select": _SELECT_FIELDS,
+                                "per_page": min(max(query.top_k * 2, 5), 100),
+                            },
+                            headers=headers,
+                        )
+                    else:
+                        response = self.client.get(
+                            _WORKS_URL,
+                            params=_search_params(query),
+                            headers=headers,
+                        )
+            except httpx.TransportError:
+                if attempt >= self.max_transient_retries:
+                    raise
+                continue
+            if response.status_code < 500 or attempt >= self.max_transient_retries:
+                return response
+        raise AssertionError("OpenAlex retry loop exhausted without a response")
 
     def close(self) -> None:
         """Close the owned HTTP client."""
