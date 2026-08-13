@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -15,9 +16,27 @@ def test_canonical_upstream_revision_is_explicit_and_immutable() -> None:
         "42c8e5c67724551019ca9fa9cf74c2e5b31e011f"
     )
     assert MANIFEST["accepted_source_commit"] == (
-        "a883d6a3928b83d59aad027c1be7a3a83c934c7c"
+        "42c8e5c67724551019ca9fa9cf74c2e5b31e011f"
     )
     assert MANIFEST["relationship"] == "source_overlay_downstream"
+
+
+def test_python_package_matches_accepted_upstream_snapshot() -> None:
+    package_root = ROOT / "src" / "open_web_retrieval"
+    digest = hashlib.sha256()
+    tracked_sources = sorted(
+        path
+        for path in package_root.rglob("*")
+        if path.is_file()
+        and "__pycache__" not in path.parts
+        and (path.suffix == ".py" or path.name == "py.typed")
+    )
+    for path in tracked_sources:
+        digest.update(path.relative_to(package_root).as_posix().encode())
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    assert digest.hexdigest() == MANIFEST["source_tree_sha256"]
 
 
 def test_public_install_has_no_private_or_unrelated_runtime_dependency() -> None:

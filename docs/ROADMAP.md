@@ -63,6 +63,10 @@ embedding model execution to the approved private `llm_client`, and excludes
 the unrelated public `llm-client` distribution from install and test
 dependencies.
 
+**Canonical source parity (2026-08-13):** The public downstream now pins and
+verifies a byte-identical Python package snapshot from the canonical upstream.
+Independent Git history and public-install metadata remain downstream-owned.
+
 **v0.12 source sync (2026-08-13):** Accepts typed access-challenge detection,
 Jina Reader, and the opt-in Crawl4AI→Jina fallback ladder from canonical
 upstream. Explicit CAPTCHA, login, and paywall bypass remain out of scope.

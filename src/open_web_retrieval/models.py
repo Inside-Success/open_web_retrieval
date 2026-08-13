@@ -31,12 +31,14 @@ class FetchMetrics:
     auto_rendered: int = 0  # SPA detection escalation (Playwright re-fetch or embedded JSON)
 
 ProviderName = Literal[
-    "brave", "searxng", "tavily", "exa", "openalex",
-    # Source-TARGETED, keyless providers (2026-07-28). Unlike the general web
-    # providers above, these query a single venue's own index — HN's index holds
-    # HN, arXiv's holds preprints — so practitioner and preprint evidence comes
-    # back by construction instead of depending on how a general index ranks it.
-    "hackernews", "arxiv", "reddit",
+    "brave",
+    "searxng",
+    "tavily",
+    "exa",
+    "openalex",
+    "reddit",
+    "hackernews",
+    "arxiv",
 ]
 AccessAlternativeKind = Literal[
     "official_api",
@@ -125,7 +127,13 @@ class SearchQuery(BaseModel):
 
 
 class OpenAlexQuery(SearchQuery):
-    """OpenAlex works query with an explicit provider-native search mode."""
+    """OpenAlex works query with an explicit provider-native search mode.
+
+    ``keyword`` searches indexed text, ``semantic`` uses OpenAlex's native
+    embedding search, and ``oql`` executes a caller-authored works query. OQL
+    aggregation is intentionally excluded because grouped rows cannot satisfy
+    the normalized :class:`SearchHit` contract.
+    """
 
     providers: Sequence[Literal["openalex"]] = ("openalex",)
     mode: OpenAlexSearchMode = "keyword"
@@ -133,14 +141,19 @@ class OpenAlexQuery(SearchQuery):
     @field_validator("providers")
     @classmethod
     def ensure_only_openalex(
-        cls, providers: Sequence[Literal["openalex"]]
+        cls,
+        providers: Sequence[Literal["openalex"]],
     ) -> tuple[Literal["openalex"], ...]:
+        """Reject mixed provider execution for provider-native query syntax."""
+
         if tuple(providers) != ("openalex",):
             raise ValueError("OpenAlexQuery only supports providers=('openalex',)")
         return ("openalex",)
 
     @model_validator(mode="after")
     def ensure_mode_contract(self) -> OpenAlexQuery:
+        """Reject OQL shapes that cannot normalize to paper search hits."""
+
         if self.mode != "oql":
             return self
         normalized = " ".join(self.query.lower().split())

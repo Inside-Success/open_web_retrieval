@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 
 import httpx
@@ -40,7 +40,7 @@ def _recency_start_iso(recency_days: int | None) -> str | None:
     """Convert recency-days into Exa's startPublishedDate ISO string."""
     if recency_days is None:
         return None
-    return (datetime.now(UTC) - timedelta(days=recency_days)).isoformat().replace("+00:00", "Z")
+    return (datetime.now(timezone.utc) - timedelta(days=recency_days)).isoformat().replace("+00:00", "Z")
 
 
 def _snippet_from_result(result: dict[str, object]) -> str | None:

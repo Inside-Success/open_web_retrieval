@@ -3,7 +3,8 @@
   "relationship": "source_overlay_downstream",
   "canonical_upstream": "BrianMills2718/open_web_retrieval",
   "upstream_revision": "42c8e5c67724551019ca9fa9cf74c2e5b31e011f",
-  "accepted_source_commit": "a883d6a3928b83d59aad027c1be7a3a83c934c7c",
+  "accepted_source_commit": "42c8e5c67724551019ca9fa9cf74c2e5b31e011f",
+  "source_tree_sha256": "1321650f8d60fed7f8ed25990277929c887a356c1b10550607012d8da12d5eac",
   "upstream_version": "0.12.0",
   "runtime_dependency": false,
   "runtime_dependency_reason": "Both repositories currently publish the same distribution and import namespace, and the canonical upstream is private while this downstream is public.",
@@ -25,6 +26,7 @@
   "sync_rules": [
     "Do not merge or cherry-pick histories between the repositories.",
     "Port shared source changes through reviewed commits with provenance.",
+    "Keep the tracked Python package tree byte-identical to the accepted upstream revision.",
     "Keep company-only capabilities isolated until separately accepted upstream.",
     "Do not make public installation depend on private Git credentials."
   ]

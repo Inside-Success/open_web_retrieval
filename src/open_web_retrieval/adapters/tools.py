@@ -237,8 +237,10 @@ async def exa_search(
     domain="web",
     description=(
         "Search fetchable open-access scholarly works in OpenAlex. Use keyword "
-        "for precise terms, semantic for conceptual discovery, and oql for a "
-        "works-only query with field, date, or Boolean constraints."
+        "for precise terms and Boolean phrases, semantic for conceptual or "
+        "long-context discovery, and oql for a works-only OpenAlex query with "
+        "field, date, author, institution, or nested Boolean constraints. In "
+        "oql mode, query must begin with 'works' and must not group results."
     ),
     cost_tier="free",
     goal="research-quality",
@@ -269,9 +271,11 @@ async def openalex_search(
         top_k=top_k,
         recency_days=recency_days,
     )
+    # Keep credentials in process configuration rather than model-generated
+    # tool arguments so they cannot enter tool-call transcripts.
     adapter = OpenAlexSearchAdapter(
         api_key=os.environ.get("OPENALEX_API_KEY") or None,
-        timeout_seconds=timeout_seconds or 15.0,
+        timeout_seconds=timeout_seconds,
     )
     try:
         return await asyncio.to_thread(adapter.search, search_query)
@@ -279,18 +283,7 @@ async def openalex_search(
         adapter.close()
 
 
-openalex_search.__tool_input_examples__ = [
-    {
-        "query": "how people decide to share conspiracy claims online",
-        "mode": "semantic",
-        "top_k": 5,
-    },
-    {
-        "query": "works where title/abstract has (conspiracy drivers in social media) and year >= (2020)",
-        "mode": "oql",
-        "top_k": 10,
-    },
-]
+openalex_search.__tool_input_examples__ = [{"query": "how people decide to share conspiracy claims online", "mode": "semantic", "top_k": 5}, {"query": "works where title/abstract has (conspiracy drivers in social media) and year >= (2020)", "mode": "oql", "top_k": 10}]
 
 
 async def openalex_agent_tool(
@@ -302,10 +295,14 @@ async def openalex_agent_tool(
 ) -> str:
     """Search OpenAlex with agent-selected keyword, semantic, or works-only OQL.
 
-    Use keyword for exact text, semantic for conceptual discovery, and OQL for
-    field/date/nested Boolean constraints. OQL must begin with ``works`` and
-    cannot group results. Put date constraints in OQL, for example
-    ``and year >= (2020)``.
+    Use keyword for exact text, semantic for conceptual discovery, and oql for
+    field/date/nested Boolean constraints. In oql mode, query must begin with
+    ``works`` and grouping is unsupported. Put date constraints in OQL, such
+    as ``and year >= (2020)``.
+
+    This serializable view bridges the observable ``@tool`` envelope to
+    ``llm_client``'s direct Python-tool runtime. The model sees the tool name
+    ``openalex_search``; provider credentials remain process-only.
     """
 
     result = await openalex_search(
@@ -316,8 +313,9 @@ async def openalex_agent_tool(
     )
     if not result.success:
         raise RuntimeError(result.error or "OpenAlex search failed")
+    hits = result.data or []
     compact_hits = []
-    for hit in result.data or []:
+    for hit in hits:
         metadata = hit.raw_payload.get("_openalex_meta", {}) if hit.raw_payload else {}
         compact_hits.append(
             {
@@ -328,12 +326,18 @@ async def openalex_agent_tool(
                 "url": hit.url,
                 "snippet": hit.snippet,
                 "publisher": hit.publisher,
-                "published_at": hit.published_at.isoformat() if hit.published_at else None,
+                "published_at": (
+                    hit.published_at.isoformat() if hit.published_at else None
+                ),
                 "rank": hit.rank,
             }
         )
     return json.dumps(compact_hits, ensure_ascii=False)
 
 
+# Keep the provider-facing name stable in model tool schemas while exposing a
+# distinct Python symbol for the direct-runtime serialization bridge.
 openalex_agent_tool.__name__ = "openalex_search"
-openalex_agent_tool.__tool_input_examples__ = openalex_search.__tool_input_examples__
+openalex_agent_tool.__tool_input_examples__ = (  # type: ignore[attr-defined]
+    openalex_search.__tool_input_examples__
+)

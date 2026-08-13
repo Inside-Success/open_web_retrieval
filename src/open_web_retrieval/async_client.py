@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections.abc import Mapping
 from pathlib import Path
 
+from open_web_retrieval.adapters.arxiv import ArxivSearchAdapter
 from open_web_retrieval.adapters.base import SearchAdapter, SearchAdapterFactory
 from open_web_retrieval.adapters.brave import BraveSearchAdapter
+from open_web_retrieval.adapters.hackernews import HackerNewsSearchAdapter
 from open_web_retrieval.adapters.openalex import OpenAlexSearchAdapter
 from open_web_retrieval.adapters.searxng import SearxNGSearchAdapter
 from open_web_retrieval.async_fetch import AsyncSourceFetcher
@@ -42,8 +45,8 @@ logger = logging.getLogger(__name__)
 class AsyncOpenWebRetrievalClient:
     """Async facade for search, fetch, and extraction.
 
-    Search adapters are synchronous (fast, negligible I/O) so they run
-    inline.  Fetch uses ``AsyncSourceFetcher`` for non-blocking HTTP.
+    Search adapters use synchronous HTTP clients, so calls run in worker
+    threads. Fetch uses ``AsyncSourceFetcher`` for native non-blocking HTTP.
     """
 
     def __init__(
@@ -53,6 +56,9 @@ class AsyncOpenWebRetrievalClient:
         searxng_base_url: str | None = None,
         enable_openalex: bool = False,
         openalex_api_key: str | None = None,
+        enable_hackernews: bool = False,
+        enable_arxiv: bool = False,
+        arxiv_contact: str | None = None,
         timeout_seconds: float | None = None,
         adapters: Mapping[str, SearchAdapter] | None = None,
         cache_dir: str | Path | None = None,
@@ -68,6 +74,9 @@ class AsyncOpenWebRetrievalClient:
         Args:
             brave_api_key: API key for Brave Search.
             searxng_base_url: Base URL for a SearxNG instance.
+            enable_openalex: Register the OpenAlex scholarly works adapter.
+            openalex_api_key: Optional OpenAlex API key. Anonymous basic access
+                remains supported; authenticated requests use a bearer header.
             timeout_seconds: Per-request timeout.
             adapters: Pre-built adapter mapping (overrides key-based config).
             cache_dir: If set, enables disk-based caching for search and fetch.
@@ -98,13 +107,29 @@ class AsyncOpenWebRetrievalClient:
                     OpenAlexSearchAdapter(
                         api_key=openalex_api_key,
                         timeout_seconds=timeout_seconds or 15.0,
-                    )
+                    ),
+                )
+            if enable_hackernews:
+                configured_adapters.append(
+                    HackerNewsSearchAdapter(timeout_seconds=timeout_seconds or 15.0),
+                )
+            if enable_arxiv:
+                configured_adapters.append(
+                    ArxivSearchAdapter(
+                        timeout_seconds=timeout_seconds or 20.0,
+                        contact=arxiv_contact,
+                    ),
                 )
 
         if not configured_adapters:
             raise ProviderUnavailableError(
                 "no search providers configured",
-                context={"reason": "provide brave_api_key, searxng_base_url, or enable_openalex"},
+                context={
+                    "reason": (
+                        "provide a configured provider or enable_openalex / "
+                        "enable_hackernews / enable_arxiv"
+                    ),
+                },
             )
 
         self.adapters = SearchAdapterFactory(list(configured_adapters))
@@ -149,8 +174,8 @@ class AsyncOpenWebRetrievalClient:
     ) -> list[SearchHit]:
         """Execute search across requested providers and merge normalized hits.
 
-        Search adapters are synchronous (fast HTTP) so they run inline
-        without wrapping in an executor.
+        Synchronous adapter calls run in worker threads so provider pacing and
+        HTTP transports never block the event loop.
         """
         providers = (
             tuple(query.providers) if query.providers else self.default_providers
@@ -211,7 +236,7 @@ class AsyncOpenWebRetrievalClient:
                 metrics=common_metrics,
             )
             try:
-                hits = adapter.search(query)
+                hits = await asyncio.to_thread(adapter.search, query)
                 combined_hits.extend(hits)
                 emit_tool_call(
                     self.tool_call_logger,
