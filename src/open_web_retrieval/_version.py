@@ -4,4 +4,4 @@ Imported by both __init__.py and models.py to avoid circular imports
 and version string drift.
 """
 
-__version__ = "0.8.0"
+__version__ = "0.12.0"

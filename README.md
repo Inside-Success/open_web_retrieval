@@ -141,11 +141,12 @@ for record in batch.records:
 | Feature | Details |
 |---------|---------|
 | **Search** | Brave API, SearxNG, Tavily, Exa. Normalized `SearchHit` contract. Dedup by URL across providers. |
-| **Fetch** | httpx with error classification. `FetchError.retryable` distinguishes "try again" from "give up." |
+| **Fetch** | httpx with retry classification plus typed access denial, challenge, and terminal CAPTCHA outcomes. |
+| **Reader fetch** | Jina Reader for explicit public URL-to-Markdown retrieval and optional challenge fallback. |
 | **Blocked domains** | Configurable set — rejected immediately without network request. |
 | **Rate limiting** | Per-domain (default 2 req/s). Respects `Retry-After` header on 429. |
 | **Extract** | Plain text and markdown via trafilatura. Title, author, date, sitename metadata. |
-| **Render** | Optional Playwright fallback (`render_mode="always"`). Install with `[render]`. |
+| **Render** | Optional Playwright plus opt-in Crawl4AI→Jina challenge fallback. Explicit CAPTCHAs never escalate. |
 | **Provenance** | Every `SourceRecord` tracks provider, URL lineage, fetch method, extraction method. |
 | **Caching** | Optional disk cache for search results and fetched pages (TTL-based). |
 | **Observability** | `FetchMetrics` counters: fetched, skipped_blocked, skipped_permanent, retried, failed, total_wait_seconds. |

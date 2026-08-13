@@ -9,12 +9,12 @@ from datetime import datetime as _datetime
 from datetime import timezone as _timezone
 from email.utils import parsedate_to_datetime
 from hashlib import sha256
-from typing import Any
+from typing import Any, Protocol
 from urllib.parse import urlparse
 
 import httpx
 
-from open_web_retrieval.exceptions import FetchError, OpenWebRetrievalError, RenderError
+from open_web_retrieval.exceptions import FetchBlockReason, FetchError, RenderError
 from open_web_retrieval.models import (
     ExtractedDocument,
     FetchMetrics,
@@ -32,6 +32,18 @@ from open_web_retrieval.observability import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class _ReaderFetcher(Protocol):
+    def fetch(
+        self,
+        request: FetchRequest,
+        *,
+        trace_id: str | None = None,
+        task: str | None = None,
+    ) -> FetchedResource: ...
+
+    def close(self) -> None: ...
 
 # HTTP status codes that indicate permanent failures — retrying won't help.
 NON_RETRYABLE_STATUS = {401, 403, 404, 410, 451}
@@ -54,6 +66,45 @@ KNOWN_BLOCKED_DOMAINS: set[str] = {
 
 # Default wait when a 429 response lacks a Retry-After header.
 _DEFAULT_RETRY_AFTER_SECONDS = 5.0
+
+_CAPTCHA_MARKERS = (
+    "cf-turnstile",
+    "g-recaptcha",
+    "hcaptcha",
+    "verify you are human",
+    "complete the captcha",
+)
+_CHALLENGE_MARKERS = (
+    "cf-chl-",
+    "cdn-cgi/challenge-platform",
+    "just a moment...",
+    "checking your browser",
+    "enable javascript and cookies to continue",
+    "performing security verification",
+    "protect against malicious bots",
+)
+
+
+def _detect_access_block_payload(
+    *, status: int, content_type: str | None, content: bytes
+) -> FetchBlockReason | None:
+    del content_type
+    sample = content[:250_000].decode("utf-8", errors="ignore").lower()
+    if any(marker in sample for marker in _CAPTCHA_MARKERS):
+        return "captcha_required"
+    if any(marker in sample for marker in _CHALLENGE_MARKERS):
+        return "challenge_detected"
+    if status == 403:
+        return "access_denied"
+    return None
+
+
+def _detect_access_block(response: httpx.Response) -> FetchBlockReason | None:
+    return _detect_access_block_payload(
+        status=response.status_code,
+        content_type=response.headers.get("content-type"),
+        content=response.content,
+    )
 
 
 def _hash_bytes(payload: bytes) -> str:
@@ -393,6 +444,8 @@ class SourceFetcher:
         rate_limit_per_second: float = 2.0,
         tool_call_logger: ToolCallLogger | None = None,
         enable_antibot: bool = False,
+        enable_jina_fallback: bool = False,
+        jina_reader: _ReaderFetcher | None = None,
         enable_auto_render: bool = True,
     ) -> None:
         """Construct a fetcher with injected HTTP transport.
@@ -414,6 +467,8 @@ class SourceFetcher:
                     "Install with: pip install open_web_retrieval[antibot]"
                 )
         self._enable_antibot = enable_antibot
+        self._enable_jina_fallback = enable_jina_fallback
+        self._jina_reader = jina_reader
         self._enable_auto_render = enable_auto_render
         self.client = client or httpx.Client(timeout=timeout_seconds)
         self._owns_client = client is None
@@ -423,6 +478,82 @@ class SourceFetcher:
         self._last_request: dict[str, float] = {}  # domain -> monotonic timestamp
         self.metrics = FetchMetrics()
         self.tool_call_logger = tool_call_logger
+
+    def _jina_fetch(
+        self,
+        request: FetchRequest,
+        *,
+        trace_id: str | None,
+        task: str | None,
+    ) -> FetchedResource:
+        if self._jina_reader is None:
+            from open_web_retrieval.adapters.jina import JinaReaderAdapter
+
+            self._jina_reader = JinaReaderAdapter(tool_call_logger=self.tool_call_logger)
+        return self._jina_reader.fetch(request, trace_id=trace_id, task=task)
+
+    def _fetch_access_fallback(
+        self,
+        request: FetchRequest,
+        *,
+        reason: FetchBlockReason,
+        trace_id: str | None,
+        task: str | None,
+    ) -> FetchedResource | None:
+        if reason == "captcha_required":
+            return None
+        if self._enable_antibot:
+            try:
+                self.metrics.escalated += 1
+                fallback_reason = "http_403_antibot" if reason == "access_denied" else reason
+                resource = self._crawl4ai_fetch(
+                    request.url,
+                    trace_id=trace_id,
+                    task=task,
+                    fallback_reason=fallback_reason,
+                )
+                returned_block = _detect_access_block_payload(
+                    status=resource.status,
+                    content_type=resource.content_type,
+                    content=resource.content_bytes,
+                )
+                if returned_block is None:
+                    return resource
+                if returned_block == "captcha_required":
+                    raise FetchError(
+                        "Crawl4AI reached a CAPTCHA",
+                        retryable=False,
+                        block_reason=returned_block,
+                        context={"url": request.url, "block_reason": returned_block},
+                    )
+            except FetchError as exc:
+                if exc.block_reason == "captcha_required":
+                    raise
+                logger.warning("crawl4ai escalation failed: %s", exc)
+            except Exception as exc:  # noqa: BLE001 - continue explicit ladder
+                logger.warning("crawl4ai escalation failed: %s", exc)
+        if self._enable_jina_fallback:
+            try:
+                self.metrics.escalated += 1
+                resource = self._jina_fetch(request, trace_id=trace_id, task=task)
+                returned_block = _detect_access_block_payload(
+                    status=resource.status,
+                    content_type=resource.content_type,
+                    content=resource.content_bytes,
+                )
+                if returned_block is not None:
+                    raise FetchError(
+                        f"Jina Reader returned access block: {returned_block}",
+                        retryable=False,
+                        block_reason=returned_block,
+                        context={"url": request.url, "block_reason": returned_block},
+                    )
+                return resource
+            except FetchError:
+                raise
+            except Exception as exc:  # noqa: BLE001 - typed terminal result follows
+                logger.warning("Jina Reader escalation failed: %s", exc)
+        return None
 
     def _rate_limit_wait(self, domain: str) -> None:
         """Sleep if needed to respect per-domain rate limits."""
@@ -749,8 +880,10 @@ class SourceFetcher:
                         context={"url": request.url, "status": 429, "retry_after": wait},
                     ) from retry_exc
             else:
-                # Escalate 403 to browser-based fetch when antibot is enabled
-                if exc.response.status_code == 403 and self._enable_antibot:
+                block_reason = _detect_access_block(exc.response)
+                if block_reason is not None and (
+                    self._enable_antibot or self._enable_jina_fallback
+                ):
                     emit_tool_call(
                         self.tool_call_logger,
                         call_id=call_id,
@@ -767,28 +900,23 @@ class SourceFetcher:
                         trace_id=trace_id,
                         metrics={
                             **base_metrics,
-                            "http_status": 403,
+                            "http_status": exc.response.status_code,
                             "retryable": False,
-                            "fallback_provider": "crawl4ai",
-                            "fallback_reason": "http_403_antibot",
+                            "fallback_provider": "crawl4ai" if self._enable_antibot else "jina_reader",
+                            "fallback_reason": "http_403_antibot" if block_reason == "access_denied" else block_reason,
+                            "access_block_reason": block_reason,
                         },
                         error_type="HTTPStatusError",
-                        error_message="HTTP 403",
+                        error_message=f"HTTP {exc.response.status_code}",
                     )
-                    try:
-                        logger.info("Escalating to crawl4ai for anti-bot: %s", request.url)
-                        self.metrics.escalated += 1
-                        resource = self._crawl4ai_fetch(
-                            request.url,
-                            trace_id=trace_id,
-                            task=task,
-                            fallback_reason="http_403_antibot",
-                        )
-                        logger.info("FETCH_ESCALATED url=%s method=crawl4ai", request.url)
+                    resource = self._fetch_access_fallback(
+                        request,
+                        reason=block_reason,
+                        trace_id=trace_id,
+                        task=task,
+                    )
+                    if resource is not None:
                         return resource
-                    except Exception as antibot_exc:
-                        logger.warning("crawl4ai escalation failed: %s", antibot_exc)
-                        # Fall through to raise original FetchError
 
                 retryable = exc.response.status_code not in NON_RETRYABLE_STATUS
                 if retryable:
@@ -818,7 +946,8 @@ class SourceFetcher:
                 raise FetchError(
                     f"HTTP {exc.response.status_code}",
                     retryable=retryable,
-                    context={"url": request.url, "status": exc.response.status_code},
+                    block_reason=block_reason,
+                    context={"url": request.url, "status": exc.response.status_code, "block_reason": block_reason},
                 ) from exc
         except httpx.HTTPError as exc:
             self.metrics.failed += 1
@@ -845,6 +974,42 @@ class SourceFetcher:
                 retryable=True,
                 context={"url": request.url, "method": "httpx"},
             ) from exc
+
+        block_reason = _detect_access_block(response)
+        if block_reason is not None:
+            emit_tool_call(
+                self.tool_call_logger,
+                call_id=call_id,
+                tool_name="open_web_retrieval",
+                operation="fetch",
+                provider="httpx",
+                target=request.url,
+                status="failed",
+                started_at=started_at,
+                ended_at=utc_now_iso(),
+                duration_ms_value=duration_ms(started_monotonic) if started_monotonic is not None else None,
+                attempt=1,
+                task=task,
+                trace_id=trace_id,
+                metrics={**base_metrics, "http_status": response.status_code, "retryable": False, "access_block_reason": block_reason},
+                error_type="AccessBlock",
+                error_message=f"access blocked: {block_reason}",
+            )
+            resource = self._fetch_access_fallback(
+                request,
+                reason=block_reason,
+                trace_id=trace_id,
+                task=task,
+            )
+            if resource is not None:
+                return resource
+            self.metrics.skipped_permanent += 1
+            raise FetchError(
+                f"access blocked: {block_reason}",
+                retryable=False,
+                block_reason=block_reason,
+                context={"url": request.url, "status": response.status_code, "block_reason": block_reason},
+            )
 
         content = response.content
         if len(content) > request.max_bytes:
@@ -1087,6 +1252,9 @@ class SourceFetcher:
         """Release HTTP client resources."""
         if getattr(self, "_owns_client", False):
             self.client.close()
+        jina_reader = getattr(self, "_jina_reader", None)
+        if jina_reader is not None:
+            jina_reader.close()
 
     def __enter__(self):
         """Enter context manager."""

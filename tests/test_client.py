@@ -76,6 +76,20 @@ class TestClientInit:
         )
         assert "exa" in client.default_providers
 
+    def test_jina_fallback_option_reaches_fetcher(self):
+        transport = httpx.MockTransport(
+            lambda req: httpx.Response(200, json={"web": {"results": []}}, request=req)
+        )
+        with OpenWebRetrievalClient(
+            adapters={
+                "brave": BraveSearchAdapter(
+                    api_key="key", client=httpx.Client(transport=transport)
+                )
+            },
+            enable_jina_fallback=True,
+        ) as client:
+            assert client.fetcher._enable_jina_fallback is True
+
 
 class TestClientSearch:
     def test_search_returns_hits(self, owr_client, search_query):

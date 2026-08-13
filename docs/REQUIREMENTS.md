@@ -64,7 +64,7 @@ canonical reusable upstream and reviewed source revision are pinned in
 | **Known-blocked domain skip** | **Shipped** | `blocked_domains` param on SourceFetcher (v0.2) |
 | **Respect Retry-After header** | **Shipped** | Integer seconds and HTTP-date (v0.3) |
 | Rate limiting (requests/second) | **Shipped** | Per-domain, default 2 req/s (v0.3) |
-| Anti-bot escalation (Crawl4AI) | **Shipped** | Optional `[antibot]` dep, triggers on 403 (v0.5) |
+| Access-challenge fallback | **Shipped** | Detects 200/403/5xx interstitials; optional Crawl4AI then Jina Reader; CAPTCHAs fail closed (v0.12) |
 | SPA detection & auto-render | **Shipped** | Framework mount points, noscript detection, embedded JSON extraction (v0.6) |
 | Robots.txt respect | **Not started** | Deferred to v1.0+ |
 

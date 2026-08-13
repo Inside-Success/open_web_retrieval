@@ -63,6 +63,10 @@ embedding model execution to the approved private `llm_client`, and excludes
 the unrelated public `llm-client` distribution from install and test
 dependencies.
 
+**v0.12 source sync (2026-08-13):** Accepts typed access-challenge detection,
+Jina Reader, and the opt-in Crawl4AI→Jina fallback ladder from canonical
+upstream. Explicit CAPTCHA, login, and paywall bypass remain out of scope.
+
 **What's next:** v1.0 (shareable library) is still gated on ROADMAP Phase 4. The
 shared retrieval control surface is now typed and verified for Tavily and Exa,
 including Exa retrieval instructions. The next justified provider work is only
