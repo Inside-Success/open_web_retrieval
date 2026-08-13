@@ -1,8 +1,5 @@
 """Tests for @tool-decorated async search functions."""
 
-# The optional dependency must be checked before importing the module under test.
-# ruff: noqa: I001
-
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -12,10 +9,7 @@ import pytest
 
 llm_tools = pytest.importorskip(
     "llm_client.tools",
-    reason=(
-        "the approved private llm_client source checkout is required for "
-        "adapter integration tests"
-    ),
+    reason="Brian's private llm_client checkout is required for adapter integration tests",
 )
 ToolResult = llm_tools.ToolResult
 registry = llm_tools.registry
@@ -23,11 +17,12 @@ registry = llm_tools.registry
 from open_web_retrieval.adapters.tools import (
     brave_search,
     exa_search,
+    openalex_agent_tool,
+    openalex_search,
     searxng_search,
     tavily_search,
 )
 from open_web_retrieval.models import SearchHit
-
 
 # ---------------------------------------------------------------------------
 # Inline mock response builders (mirror conftest fixtures)
@@ -166,10 +161,26 @@ class TestToolRegistration:
         assert info.goal == "research-quality"
         assert info.complexity == 3
 
-    def test_list_by_domain_returns_all_four(self):
+    def test_openalex_registered_with_contextual_mode_guidance(self):
+        info = registry.get("openalex_search")
+        assert info is not None
+        assert info.domain == "web"
+        assert info.cost_tier == "free"
+        assert info.goal == "research-quality"
+        assert info.complexity == 2
+        assert info.designed_for is not None
+        assert "keyword, semantic, or structured OQL" in info.designed_for
+
+    def test_list_by_domain_returns_all_search_tools(self):
         web_tools = registry.list_by_domain("web")
         names = {t.name for t in web_tools}
-        assert names >= {"brave_search", "searxng_search", "tavily_search", "exa_search"}
+        assert names >= {
+            "brave_search",
+            "searxng_search",
+            "tavily_search",
+            "exa_search",
+            "openalex_search",
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -252,3 +263,136 @@ class TestExaSearchTool:
         assert len(result.data) == 2
         assert all(h.provider == "exa" for h in result.data)
         assert all(h.published_at is not None for h in result.data)
+
+
+class TestOpenAlexSearchTool:
+    def test_existing_agent_runtime_can_build_the_tool_schema(self):
+        from llm_client.tools.tool_utils import callable_to_openai_tool
+
+        schema = callable_to_openai_tool(openalex_agent_tool)
+        function = schema["function"]
+        assert function["name"] == "openalex_search"
+        assert function["parameters"]["properties"]["mode"]["type"] == "string"
+        assert "recency_days" not in function["parameters"]["properties"]
+        assert "semantic" in function["description"]
+        assert "works where title/abstract has" in function["description"]
+
+    @pytest.mark.asyncio
+    async def test_direct_agent_tool_returns_json_serializable_hits(self, monkeypatch):
+        import json
+
+        monkeypatch.delenv("OPENALEX_API_KEY", raising=False)
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "meta": {"cost_usd": 0.001},
+                    "results": [{
+                        "id": "https://openalex.org/W1",
+                        "title": "Contextual tool selection",
+                        "publication_date": "2026-03-20",
+                        "best_oa_location": {
+                            "pdf_url": "https://papers.example/1.pdf",
+                        },
+                        "primary_location": {
+                            "source": {"display_name": "Agent Studies"},
+                        },
+                        "abstract_inverted_index": {
+                            "Agents": [0],
+                            "choose": [1],
+                            "contextual": [2],
+                            "research": [3],
+                            "tools": [4],
+                            "using": [5],
+                            "explicit": [6],
+                            "goals": [7],
+                            "and": [8],
+                            "provider": [9],
+                            "constraints": [10],
+                            "while": [11],
+                            "preserving": [12],
+                            "provenance": [13],
+                            "for": [14],
+                            "downstream": [15],
+                            "evidence": [16],
+                            "recovery": [17],
+                            "when": [18],
+                            "publisher": [19],
+                            "pages": [20],
+                            "are": [21],
+                            "blocked": [22],
+                        },
+                    }],
+                },
+                request=request,
+            )
+
+        with _patch_transport(httpx.MockTransport(handler)):
+            raw = await openalex_agent_tool(
+                query="how agents choose research tools from context",
+                mode="semantic",
+                top_k=1,
+            )
+
+        payload = json.loads(raw)
+        assert payload[0]["provider"] == "openalex"
+        assert payload[0]["mode"] == "semantic"
+        assert payload[0]["title"] == "Contextual tool selection"
+        assert payload[0]["raw_content"].startswith("Agents choose contextual")
+
+    @pytest.mark.asyncio
+    async def test_semantic_mode_returns_normalized_hits(self, monkeypatch):
+        monkeypatch.delenv("OPENALEX_API_KEY", raising=False)
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(
+                200,
+                json={
+                    "meta": {"cost_usd": 0.001},
+                    "results": [{
+                        "id": "https://openalex.org/W1",
+                        "title": "Contextual tool selection",
+                        "publication_date": "2026-03-20",
+                        "best_oa_location": {
+                            "pdf_url": "https://papers.example/1.pdf",
+                        },
+                        "primary_location": {
+                            "source": {"display_name": "Agent Studies"},
+                        },
+                        "abstract_inverted_index": None,
+                    }],
+                },
+                request=request,
+            )
+
+        with _patch_transport(httpx.MockTransport(handler)):
+            result = await openalex_search(
+                query="how agents choose research tools from context",
+                mode="semantic",
+                top_k=1,
+            )
+
+        assert isinstance(result, ToolResult)
+        assert result.success is True
+        assert result.tool_name == "openalex_search"
+        assert len(result.data) == 1
+        assert result.data[0].provider == "openalex"
+        assert "search.semantic" in requests[0].url.params
+
+    @pytest.mark.asyncio
+    async def test_oql_validation_failure_makes_zero_requests(self):
+        requests: list[httpx.Request] = []
+        transport = httpx.MockTransport(
+            lambda request: requests.append(request) or httpx.Response(200, request=request),
+        )
+        with _patch_transport(transport):
+            result = await openalex_search(
+                query="authors where works_count > (10)",
+                mode="oql",
+            )
+
+        assert result.success is False
+        assert requests == []

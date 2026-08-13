@@ -13,16 +13,13 @@ fetch pages, and extract clean text — with provenance, error classification,
 and configurable resilience. It's shared infrastructure per the root CLAUDE.md:
 "general capabilities any project uses."
 
-This repository is the public Inside Success source-overlay downstream. The
-canonical reusable upstream and reviewed source revision are pinned in
-`UPSTREAM.json`; no private Git dependency is required for public installation.
-
 ## What This Is NOT
 
 - Not a web crawler (no link-following, sitemaps, or recursive crawling)
 - Not a scraping framework (no CSS selectors, no DOM manipulation)
 - Not a general anti-bot bypass service (no CAPTCHA solving, no proxy rotation). Optional Crawl4AI escalation on HTTP 403 is available via `enable_antibot=True`, but is narrowly scoped to browser-based re-fetch, not full bypass infrastructure.
-- Not a search engine (wraps Brave/SearxNG, doesn't index anything)
+- Not a search engine (queries upstream services and source indexes; it does not
+  build or own an index)
 
 ---
 
@@ -37,7 +34,7 @@ canonical reusable upstream and reviewed source revision are pinned in
 
 ---
 
-## Capabilities (current v0.6)
+## Capabilities (current v0.12)
 
 ### Search — find URLs for a query
 
@@ -45,12 +42,18 @@ canonical reusable upstream and reviewed source revision are pinned in
 |---------|--------|-------|
 | Brave API search | **Shipped** | Via adapter |
 | SearxNG search | **Shipped** | Via adapter |
+| Tavily API search | **Shipped** | Via adapter |
+| Exa API search | **Shipped** | Via adapter |
+| Hacker News search | **Shipped** | Keyless, opt-in source-targeted adapter via the public Algolia index |
+| arXiv search | **Shipped** | Keyless, opt-in source-targeted adapter via the Atom API |
+| OpenAlex works search | **Shipped** | Opt-in keyword, native semantic, and works-only OQL modes; anonymous basic access with optional bearer API key; one paced retry of an identical read-only query on transport errors or HTTP 5xx; agent-tool results retain the public OpenAlex abstract as optional `raw_content` for provenance-marked consumer fallback |
+| Reddit post search | **Shipped** | Opt-in OAuth script grant; subreddit scoping through `domains_allow`; credentials remain runtime-only |
 | Normalized SearchHit output | **Shipped** | Provider-agnostic Pydantic model |
 | Recency filtering | **Shipped** | `recency_days` param |
 | Domain allow/deny lists | **Shipped** | `domains_allow`, `domains_deny` |
 | Result deduplication across providers | **Shipped** | By URL, keep first occurrence (v0.4) |
 | Search result caching | **Shipped** | TTL-based via `cache.py` |
-| OpenAlex transient retry | **Shipped** | One paced retry of the identical read-only query after transport errors or HTTP 5xx; 4xx fails immediately |
+| Shared provider pacing | **Shipped** | Process-wide request-start spacing and concurrency limits for keyless providers; paid providers unchanged by default |
 
 ### Fetch — retrieve page content from a URL
 
@@ -65,8 +68,9 @@ canonical reusable upstream and reviewed source revision are pinned in
 | **Known-blocked domain skip** | **Shipped** | `blocked_domains` param on SourceFetcher (v0.2) |
 | **Respect Retry-After header** | **Shipped** | Integer seconds and HTTP-date (v0.3) |
 | Rate limiting (requests/second) | **Shipped** | Per-domain, default 2 req/s (v0.3) |
-| Access-challenge fallback | **Shipped** | Detects 200/403/5xx interstitials; optional Crawl4AI then Jina Reader; CAPTCHAs fail closed (v0.12) |
+| Access-challenge fallback | **Shipped** | Detects 200/403/5xx Cloudflare-like interstitials; optional Crawl4AI then Jina Reader; explicit CAPTCHAs fail closed (v0.12) |
 | SPA detection & auto-render | **Shipped** | Framework mount points, noscript detection, embedded JSON extraction (v0.6) |
+| Hosted URL-to-Markdown retrieval (Jina Reader) | **Shipped** | Explicit one-URL adapter; consumer owns traversal and corpus capture |
 | Robots.txt respect | **Not started** | Deferred to v1.0+ |
 
 ### Extract — turn HTML into clean text
@@ -85,7 +89,7 @@ canonical reusable upstream and reviewed source revision are pinned in
 | Full pipeline (search → fetch → extract) | **Shipped** | Via `OpenWebRetrievalClient` |
 | Provenance on every operation | **Shipped** | Provider, URL, method, timestamps |
 | Pydantic models for all contracts | **Shipped** | Frozen, validated |
-| pip-installable | **Shipped** | Fresh clone installs with `python -m pip install -e .` without private Git credentials |
+| pip-installable | **Shipped** | Fresh clone installs with `python -m pip install -e .`; no workstation path is required |
 | Context manager protocol | **Shipped** | `with SourceFetcher() as f:` and `with OpenWebRetrievalClient() as c:` (v0.6) |
 | Async support | **Shipped** | `AsyncSourceFetcher`, `AsyncOpenWebRetrievalClient` (v0.6) |
 | Cache hardening | **Shipped** | File locking, LRU eviction, `max_entries`, cache stats (v0.6) |
@@ -115,8 +119,8 @@ The library fails if:
 
 ## Priority Order
 
-The downstream dependency and source-lineage contract is current through the
-revision pinned in `UPSTREAM.json`. See ROADMAP.md for version history.
+The proposed v0.9 capability slice is implemented on its feature branch. See
+ROADMAP.md for version history and merge status.
 
 ---
 
@@ -124,13 +128,15 @@ revision pinned in `UPSTREAM.json`. See ROADMAP.md for version history.
 
 ### This library owns:
 - HTTP transport (httpx client lifecycle, retries, error classification)
-- Search provider adapters (Brave, SearxNG)
+- Search provider adapters (Brave, SearxNG, Tavily, Exa, Hacker News, arXiv, OpenAlex, Reddit)
+- Explicit single-resource hosted fetch adapters, including Jina Reader
 - Content extraction (trafilatura, fallback)
 - Provenance tracking (what was fetched, when, how)
 - Caching (TTL-based result cache)
 
 ### This library does NOT own:
-- What to search for (consumer decides queries)
+- What to search for (consumer or its authorized agent decides queries and provider-native modes)
 - What to do with extracted text (consumer's LLM pipeline)
 - Domain-specific ranking or filtering (consumer layer)
+- Link discovery, sitemap traversal, recursive crawling, and corpus storage
 - Proxy management or rotation (out of scope for v0)

@@ -13,10 +13,10 @@ MANIFEST = json.loads((ROOT / "UPSTREAM.json").read_text(encoding="utf-8"))
 def test_canonical_upstream_revision_is_explicit_and_immutable() -> None:
     assert MANIFEST["canonical_upstream"] == "BrianMills2718/open_web_retrieval"
     assert MANIFEST["upstream_revision"] == (
-        "5c724e48356adecffc9f446993d819eae6a4e8fb"
+        "531a0937258320cccbaac0e868a7f05f399e2de7"
     )
     assert MANIFEST["accepted_source_commit"] == (
-        "5c724e48356adecffc9f446993d819eae6a4e8fb"
+        "531a0937258320cccbaac0e868a7f05f399e2de7"
     )
     assert MANIFEST["relationship"] == "source_overlay_downstream"
 
@@ -54,6 +54,7 @@ def test_accepted_shared_capabilities_include_openalex_and_reddit() -> None:
     assert {
         "openalex_search",
         "openalex_transient_retry",
+        "openalex_agent_abstract_provenance",
         "reddit_search",
     }.issubset(
         MANIFEST["accepted_shared_capabilities"]
