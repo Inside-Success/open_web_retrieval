@@ -317,8 +317,7 @@ async def openalex_agent_tool(
     compact_hits = []
     for hit in hits:
         metadata = hit.raw_payload.get("_openalex_meta", {}) if hit.raw_payload else {}
-        compact_hits.append(
-            {
+        compact_hit = {
                 "provider": hit.provider,
                 "mode": metadata.get("mode"),
                 "query": hit.query,
@@ -330,8 +329,11 @@ async def openalex_agent_tool(
                     hit.published_at.isoformat() if hit.published_at else None
                 ),
                 "rank": hit.rank,
-            }
-        )
+        }
+        raw_content = hit.raw_payload.get("raw_content") if hit.raw_payload else None
+        if isinstance(raw_content, str) and len(raw_content) > 100:
+            compact_hit["raw_content"] = raw_content
+        compact_hits.append(compact_hit)
     return json.dumps(compact_hits, ensure_ascii=False)
 
 
