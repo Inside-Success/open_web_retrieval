@@ -11,6 +11,7 @@ This file is the canonical plan-index contract for `docs/plans/`.
 
 | # | Name | Priority | Status | Blocks |
 |---|------|----------|--------|--------|
+| 23 | [Canonical Source Parity](23_canonical_source_parity.md) | High | ✅ Complete | drift-free public downstream consumption |
 | 22 | [Public Access-Block Classifier](22_public_access_block_classifier.md) | High | ✅ Complete | truthful consumer execution of advisory routes |
 | 21 | [Typed Access Alternatives](21_access_alternatives.md) | High | ✅ Complete | agent-visible recovery from terminal blocks |
 | 1 | [Fetch Error Classification](01_fetch_resilience_and_crawl4ai.md) | High | ✅ Complete | - |

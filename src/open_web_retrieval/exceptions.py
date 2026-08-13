@@ -8,7 +8,11 @@ from typing import TYPE_CHECKING, Literal
 if TYPE_CHECKING:
     from open_web_retrieval.models import AccessAlternative
 
-FetchBlockReason = Literal["access_denied", "challenge_detected", "captcha_required"]
+FetchBlockReason = Literal[
+    "access_denied",
+    "challenge_detected",
+    "captcha_required",
+]
 
 
 class OpenWebRetrievalError(RuntimeError):

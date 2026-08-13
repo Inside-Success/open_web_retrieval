@@ -41,6 +41,10 @@ are accepted shared source ports from the canonical upstream. Embedding model
 execution belongs to the separately installed private `llm_client`; consumers
 own chunking, similarity policy, and vector storage.
 
+The tracked Python package is byte-identical to the upstream revision recorded
+in `UPSTREAM.json`; the public repository retains independent Git history and
+company-owned CI, documentation, and publication controls.
+
 Suggested reading order:
 
 1. `CLAUDE.md`

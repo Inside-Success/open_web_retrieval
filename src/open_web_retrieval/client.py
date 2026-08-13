@@ -73,12 +73,11 @@ class OpenWebRetrievalClient:
         searxng_base_url: str | None = None,
         tavily_api_key: str | None = None,
         enable_openalex: bool = False,
-        openalex_mailto: str | None = None,
         openalex_api_key: str | None = None,
+        enable_reddit: bool = False,
         enable_hackernews: bool = False,
         enable_arxiv: bool = False,
         arxiv_contact: str | None = None,
-        enable_reddit: bool = False,
         timeout_seconds: float | None = None,
         adapters: Mapping[str, SearchAdapter] | None = None,
         cache_dir: str | Path | None = None,
@@ -94,6 +93,9 @@ class OpenWebRetrievalClient:
         """Configure provider adapters, fetcher, and optional disk cache.
 
         Args:
+            enable_openalex: Register the OpenAlex scholarly works adapter.
+            openalex_api_key: Optional OpenAlex API key. Anonymous basic access
+                remains supported; authenticated requests use a bearer header.
             cache_dir: If set, enables disk-based caching for search and fetch.
                 Search results cached by query+provider. Fetched pages cached by URL.
             cache_ttl_seconds: TTL for cache entries (default 1 hour).
@@ -121,41 +123,37 @@ class OpenWebRetrievalClient:
             if tavily_api_key:
                 configured_adapters.append(TavilySearchAdapter(api_key=tavily_api_key, timeout_seconds=timeout_seconds))
             if enable_openalex:
-                # Keyless scholarly search (OA-gated). OPT-IN so default
-                # provider sets are unchanged for existing consumers.
                 configured_adapters.append(
                     OpenAlexSearchAdapter(
-                        mailto=openalex_mailto,
                         api_key=openalex_api_key,
                         timeout_seconds=timeout_seconds or 15.0,
                     ),
                 )
-            if enable_hackernews:
-                # Keyless, source-TARGETED: HN's own index. OPT-IN so default
-                # provider sets are unchanged for existing consumers.
-                configured_adapters.append(
-                    HackerNewsSearchAdapter(timeout_seconds=timeout_seconds or 15.0),
-                )
             if enable_reddit:
-                # Credentials come from the environment (REDDIT_CLIENT_ID etc);
-                # the adapter raises ProviderUnavailableError naming the missing
-                # one rather than failing opaquely at first search.
                 configured_adapters.append(
                     RedditSearchAdapter(timeout_seconds=timeout_seconds or 20.0),
                 )
+            if enable_hackernews:
+                configured_adapters.append(
+                    HackerNewsSearchAdapter(timeout_seconds=timeout_seconds or 15.0),
+                )
             if enable_arxiv:
-                # Keyless preprint search. arXiv asks for ~1 req/3s and does not
-                # want concurrent fan-out; pacing is the caller's job.
                 configured_adapters.append(
                     ArxivSearchAdapter(
-                        timeout_seconds=timeout_seconds or 20.0, contact=arxiv_contact
+                        timeout_seconds=timeout_seconds or 20.0,
+                        contact=arxiv_contact,
                     ),
                 )
 
         if not configured_adapters:
             raise ProviderUnavailableError(
                 "no search providers configured",
-                context={"reason": "provide brave_api_key, exa_api_key, searxng_base_url, tavily_api_key, and/or set enable_openalex / enable_hackernews / enable_arxiv (keyless) / enable_reddit"},
+                context={
+                    "reason": (
+                        "provide a configured provider or enable_openalex / "
+                        "enable_reddit / enable_hackernews / enable_arxiv"
+                    ),
+                },
             )
 
         self.adapters = SearchAdapterFactory(list(configured_adapters))

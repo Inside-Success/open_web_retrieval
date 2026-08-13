@@ -41,9 +41,9 @@ CREDS = dict(
 @pytest.fixture(autouse=True)
 def _clear_throttles():
     """Throttles are process-wide singletons; env overrides need a fresh one."""
-    base.reset_throttles()
+    base.reset_provider_throttles()
     yield
-    base.reset_throttles()
+    base.reset_provider_throttles()
 
 
 # ── the throttle ────────────────────────────────────────────────────────────
@@ -85,12 +85,12 @@ class TestThrottle:
 
     def test_rpm_zero_disables_spacing(self, monkeypatch):
         monkeypatch.setenv("OWR_RPM_REDDIT", "0")
-        assert base._Throttle("reddit").min_interval == 0.0
+        assert base.ProviderThrottle("reddit").min_interval == 0.0
 
     def test_it_actually_spaces_calls(self, monkeypatch):
         """The point of the exercise: successive calls are separated in time."""
         monkeypatch.setenv("OWR_RPM_HACKERNEWS", "600")  # 0.1s apart
-        throttle = base._Throttle("hackernews")
+        throttle = base.ProviderThrottle("hackernews")
         start = time.monotonic()
         for _ in range(4):
             with throttle.hold():
@@ -100,7 +100,7 @@ class TestThrottle:
 
     def test_it_caps_concurrency(self, monkeypatch):
         monkeypatch.setenv("OWR_RPM_ARXIV", "0")  # isolate concurrency from spacing
-        throttle = base._Throttle("arxiv")  # concurrency 1
+        throttle = base.ProviderThrottle("arxiv")  # concurrency 1
         peak = {"now": 0, "max": 0}
         guard = threading.Lock()
 

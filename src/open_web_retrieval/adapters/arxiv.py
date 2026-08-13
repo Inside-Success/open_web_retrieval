@@ -1,33 +1,20 @@
-"""arXiv search adapter (keyless, preprint-targeted).
+"""Keyless, source-targeted arXiv search adapter.
 
-WHY THIS EXISTS alongside OpenAlex: OpenAlex is an OA-gated scholarly INDEX and
-this package already has it. arXiv is the preprint SERVER, and in ML/AI the
-relevant work is on arXiv months before it is indexed anywhere — which is
-exactly the recency axis grounded-research cares about. The two overlap on
-published papers and diverge completely on the last six months.
-
-Keyless: the arXiv API (https://info.arxiv.org/help/api) needs no auth and no
-account. Adapted from the equivalent client in
-Inside-Success/social-research-mcp (Brian Mills), reshaped to this package's
-SearchAdapter contract.
-
-RATE DISCIPLINE: arXiv asks callers for roughly one request every three seconds
-and to identify themselves. That is now ENFORCED, not merely documented - the
-base class throttle serializes this provider at ~18/min (see _PROVIDER_LIMITS).
-Pass ``contact`` to identify yourself as arXiv requests.
-
-The abstract rides ``raw_payload["raw_content"]`` so a consumer holds verifiable
-text even when the PDF fetch is blocked (same contract as the OpenAlex adapter).
+Source-ported from ``Inside-Success/open_web_retrieval`` at
+``98e54bfed2c0366ce8c8e64a59d80de41e8aa917`` with contract and testability
+adaptations for the canonical upstream.
 """
 
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
+from types import TracebackType
+from typing import Any
 
 import httpx
 
-from open_web_retrieval.adapters.base import SearchAdapter
+from open_web_retrieval.adapters.base import ProviderThrottle, SearchAdapter
 from open_web_retrieval.exceptions import (
     CapabilityNotSupportedError,
     OpenWebRetrievalError,
@@ -39,48 +26,32 @@ _BASE_URL = "https://export.arxiv.org/api/query"
 _ATOM = "{http://www.w3.org/2005/Atom}"
 
 
-def _text(node: ET.Element | None) -> str:
-    """Collapsed text of an Atom node; arXiv wraps titles/abstracts at 80 cols."""
-    if node is None or node.text is None:
-        return ""
-    return " ".join(node.text.split())
-
-
-def _parse_stamp(raw: str) -> datetime | None:
-    """arXiv stamps are RFC3339 with a literal Z."""
-    if not raw:
-        return None
-    try:
-        return datetime.fromisoformat(raw.replace("Z", "+00:00")).astimezone(timezone.utc)
-    except ValueError:
-        return None
-
-
 class ArxivSearchAdapter(SearchAdapter):
-    """Adapter for the keyless arXiv Atom search API."""
+    """Search the public arXiv Atom API and normalize preprint records."""
 
     provider_name = "arxiv"
 
     def __init__(
         self,
-        timeout_seconds: float = 20.0,
-        client: httpx.Client | None = None,
+        *,
+        timeout_seconds: float | None = 20.0,
         contact: str | None = None,
+        client: httpx.Client | None = None,
+        request_throttle: ProviderThrottle | None = None,
     ) -> None:
-        """``contact`` sets a identifying User-Agent, which arXiv requests."""
-        self.contact = contact
-        headers = {"User-Agent": f"open-web-retrieval ({contact})"} if contact else None
-        if client is not None:
-            self.client = client
-            self._owns_client = False
-        else:
-            self.client = httpx.Client(
-                timeout=timeout_seconds, follow_redirects=True, headers=headers
-            )
-            self._owns_client = True
+        """Configure transport, optional contact identity, and pacing."""
+
+        self.user_agent = f"open-web-retrieval ({contact})" if contact else None
+        self.client = client or httpx.Client(
+            timeout=timeout_seconds,
+            follow_redirects=True,
+        )
+        self._owns_client = client is None
+        self._provider_throttle = request_throttle
 
     def search(self, query: SearchQuery) -> list[SearchHit]:
-        """Execute an arXiv search; returns normalized preprint records."""
+        """Return normalized arXiv preprints for a search query."""
+
         if query.retrieval_instruction is not None:
             raise CapabilityNotSupportedError(
                 "arXiv does not support retrieval_instruction",
@@ -92,22 +63,19 @@ class ArxivSearchAdapter(SearchAdapter):
                 context={"provider": self.provider_name, "query": query.query},
             )
 
-        # arXiv has no date filter in search_query. Recency is served by sorting
-        # newest-first and pruning client-side, so we over-fetch to survive the
-        # prune rather than silently returning fewer hits than asked for.
-        recency = query.recency_days
-        want = min(max(query.top_k, 1), 50)
+        overfetch = min(query.top_k * 3, 100) if query.recency_days else query.top_k
         params = {
             "search_query": f"all:{query.query}",
             "start": "0",
-            "max_results": str(min(want * 3, 100) if recency else want),
-            "sortBy": "submittedDate" if recency else "relevance",
+            "max_results": str(overfetch),
+            "sortBy": "submittedDate" if query.recency_days else "relevance",
             "sortOrder": "descending",
         }
+        headers = {"User-Agent": self.user_agent} if self.user_agent else None
 
         try:
             with self.paced():
-                response = self.client.get(_BASE_URL, params=params)
+                response = self.client.get(_BASE_URL, params=params, headers=headers)
             response.raise_for_status()
         except httpx.TimeoutException as exc:
             raise OpenWebRetrievalError(
@@ -117,7 +85,11 @@ class ArxivSearchAdapter(SearchAdapter):
         except httpx.HTTPStatusError as exc:
             raise RetrievalError(
                 f"arXiv returned HTTP {exc.response.status_code}",
-                context={"provider": self.provider_name, "query": query.query},
+                context={
+                    "provider": self.provider_name,
+                    "query": query.query,
+                    "status_code": exc.response.status_code,
+                },
             ) from exc
         except httpx.HTTPError as exc:
             raise OpenWebRetrievalError(
@@ -125,100 +97,127 @@ class ArxivSearchAdapter(SearchAdapter):
                 context={"provider": self.provider_name, "query": query.query},
             ) from exc
 
-        try:
-            root = ET.fromstring(response.text)
-        except ET.ParseError as exc:
-            # arXiv answers 200 with an error body on some malformed queries —
-            # fail as a retrieval error, never as an empty result set that a
-            # consumer would read as "no such research exists".
-            raise RetrievalError(
-                "arXiv returned a body that is not valid XML",
-                context={"provider": self.provider_name, "query": query.query},
-            ) from exc
-        # Parsing is NOT enough: an HTML error page is perfectly valid XML, so it
-        # parses, yields zero Atom entries, and would return [] — the silent
-        # "no research exists" lie this guard exists to prevent. Caught by
-        # test_non_xml_body_raises_instead_of_returning_empty.
-        if root.tag != f"{_ATOM}feed":
-            raise RetrievalError(
-                f"arXiv returned <{root.tag}>, not an Atom feed",
-                context={"provider": self.provider_name, "query": query.query},
-            )
-
+        root = _parse_feed(response.text, query)
         cutoff = (
-            datetime.now(timezone.utc) - timedelta(days=int(recency))
-            if recency is not None
+            datetime.now(timezone.utc) - timedelta(days=query.recency_days)
+            if query.recency_days is not None
             else None
         )
 
         hits: list[SearchHit] = []
-        rank = 0
         for entry in root.findall(f"{_ATOM}entry"):
-            abs_url = _text(entry.find(f"{_ATOM}id"))
-            if not abs_url.startswith("http"):
+            absolute_url = _text(entry.find(f"{_ATOM}id"))
+            if not absolute_url.startswith(("http://", "https://")):
                 continue
-            published_at = _parse_stamp(_text(entry.find(f"{_ATOM}published")))
-            if cutoff is not None and (published_at is None or published_at < cutoff):
+            published_at = _parse_timestamp(_text(entry.find(f"{_ATOM}published")))
+            if cutoff is not None and (
+                published_at is None or published_at < cutoff
+            ):
                 continue
 
             abstract = _text(entry.find(f"{_ATOM}summary"))
             authors = [
-                _text(a.find(f"{_ATOM}name"))
-                for a in entry.findall(f"{_ATOM}author")
+                _text(author.find(f"{_ATOM}name"))
+                for author in entry.findall(f"{_ATOM}author")
             ]
-            pdf_url = None
-            for link in entry.findall(f"{_ATOM}link"):
-                if link.get("title") == "pdf" and link.get("href"):
-                    pdf_url = link.get("href")
-                    break
-
-            payload: dict = {
-                "arxiv_abs_url": abs_url,
+            pdf_url = next(
+                (
+                    link.get("href")
+                    for link in entry.findall(f"{_ATOM}link")
+                    if link.get("title") == "pdf" and link.get("href")
+                ),
+                None,
+            )
+            raw_payload: dict[str, Any] = {
+                "arxiv_abs_url": absolute_url,
                 "pdf_url": pdf_url,
-                "authors": [a for a in authors if a],
+                "authors": [author for author in authors if author],
                 "updated": _text(entry.find(f"{_ATOM}updated")),
                 "categories": [
-                    c.get("term")
-                    for c in entry.findall(f"{_ATOM}category")
-                    if c.get("term")
+                    category.get("term")
+                    for category in entry.findall(f"{_ATOM}category")
+                    if category.get("term")
                 ],
             }
             if len(abstract) > 100:
-                payload["raw_content"] = abstract
+                raw_payload["raw_content"] = abstract
 
-            rank += 1
             hits.append(
                 SearchHit(
-                    provider=self.provider_name,
+                    provider="arxiv",
                     query=query.query,
                     title=_text(entry.find(f"{_ATOM}title")) or None,
-                    # The abs page, not the PDF: it is reliably fetchable, and
-                    # the PDF rides the payload for a consumer that wants it.
-                    url=abs_url,
-                    snippet=abstract[:400] if abstract else None,
+                    url=absolute_url,
+                    snippet=abstract[:400] or None,
                     publisher="arXiv",
                     published_at=published_at,
-                    rank=rank,
-                    # arXiv returns no relevance score at all. None is the
-                    # honest value; do not synthesize one from rank.
+                    rank=len(hits) + 1,
                     score_hint=None,
                     language=None,
-                    raw_payload=payload,
-                )
+                    raw_payload=raw_payload,
+                ),
             )
-            if len(hits) >= want:
+            if len(hits) >= query.top_k:
                 break
         return hits
 
     def close(self) -> None:
-        """Close owned HTTP client to release sockets."""
-        if getattr(self, "_owns_client", False):
+        """Close the owned HTTP client."""
+
+        if self._owns_client:
             self.client.close()
 
-    def __enter__(self):
-        """Enter context manager."""
+    # ``typing.Self`` is unavailable on the package's Python 3.10 floor.
+    def __enter__(self) -> ArxivSearchAdapter:  # noqa: PYI034
+        """Enter a context that owns this adapter's transport."""
+
         return self
 
-    def __exit__(self, *exc_info):
-        """Exit context manager, closing owned resources."""
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """Close owned resources when leaving a context."""
+
         self.close()
+
+
+def _parse_feed(body: str, query: SearchQuery) -> ET.Element:
+    """Parse and validate an arXiv Atom feed without treating HTML as empty."""
+
+    try:
+        root = ET.fromstring(body)
+    except ET.ParseError as exc:
+        raise RetrievalError(
+            "arXiv returned a body that is not valid XML",
+            context={"provider": "arxiv", "query": query.query},
+        ) from exc
+    if root.tag != f"{_ATOM}feed":
+        raise RetrievalError(
+            f"arXiv returned <{root.tag}>, not an Atom feed",
+            context={"provider": "arxiv", "query": query.query},
+        )
+    return root
+
+
+def _text(node: ET.Element | None) -> str:
+    """Collapse provider line wrapping in one Atom text node."""
+
+    if node is None or node.text is None:
+        return ""
+    return " ".join(node.text.split())
+
+
+def _parse_timestamp(value: str) -> datetime | None:
+    """Parse an arXiv RFC3339 timestamp into an aware UTC datetime."""
+
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(
+            timezone.utc,
+        )
+    except ValueError:
+        return None

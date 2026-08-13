@@ -7,6 +7,7 @@ from open_web_retrieval.access_alternatives import (
 )
 from open_web_retrieval.adapters.jina import JinaReaderAdapter
 from open_web_retrieval.adapters.openalex import OpenAlexSearchAdapter
+from open_web_retrieval.adapters.reddit import RedditSearchAdapter
 from open_web_retrieval.async_client import AsyncOpenWebRetrievalClient
 from open_web_retrieval.async_fetch import AsyncSourceFetcher
 from open_web_retrieval.cache import CacheStats, DiskCache
@@ -55,6 +56,7 @@ __all__ = [
     "OpenWebRetrievalClient",
     "OpenWebRetrievalError",
     "ProviderUnavailableError",
+    "RedditSearchAdapter",
     "RenderError",
     "RetrievalError",
     "SearchHit",
