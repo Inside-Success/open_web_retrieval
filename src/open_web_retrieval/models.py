@@ -179,7 +179,24 @@ class SearchHit(BaseModel):
     rank: int = 0
     score_hint: float | None = None
     language: str | None = None
+    scholarly_metadata: ScholarlyWorkMetadata | None = None
     raw_payload: Mapping[str, Any] | None = None
+
+    model_config = ConfigDict(frozen=True)
+
+
+class ScholarlyWorkMetadata(BaseModel):
+    """Provider-supplied bibliographic attributes for a scholarly work.
+
+    This is descriptive provenance, not a certification that a work received
+    peer review.  Providers may omit any field they do not expose.
+    """
+
+    work_id: str | None = None
+    doi: str | None = None
+    work_type: str | None = None
+    venue_name: str | None = None
+    venue_type: str | None = None
 
     model_config = ConfigDict(frozen=True)
 
