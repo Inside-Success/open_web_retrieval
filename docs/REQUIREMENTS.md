@@ -46,7 +46,7 @@ and configurable resilience. It's shared infrastructure per the root CLAUDE.md:
 | Exa API search | **Shipped** | Via adapter |
 | Hacker News search | **Shipped** | Keyless, opt-in source-targeted adapter via the public Algolia index |
 | arXiv search | **Shipped** | Keyless, opt-in source-targeted adapter via the Atom API |
-| OpenAlex works search | **Shipped** | Opt-in keyword, native semantic, and works-only OQL modes; anonymous basic access with optional bearer API key; one paced retry of an identical read-only query on transport errors or HTTP 5xx; agent-tool results retain the public OpenAlex abstract as optional `raw_content` for provenance-marked consumer fallback |
+| OpenAlex works search | **Shipped** | Opt-in keyword, native semantic, and works-only OQL modes; anonymous basic access with optional bearer API key; one paced retry of an identical read-only query on transport errors or HTTP 5xx; agent-tool results retain the public OpenAlex abstract as optional `raw_content` for provenance-marked consumer fallback. OpenAlex hits also expose optional descriptive scholarly metadata (work ID, DOI, work type, venue name/type); this is not peer-review certification. |
 | Reddit post search | **Shipped** | Opt-in OAuth script grant; subreddit scoping through `domains_allow`; credentials remain runtime-only |
 | Normalized SearchHit output | **Shipped** | Provider-agnostic Pydantic model |
 | Recency filtering | **Shipped** | `recency_days` param |

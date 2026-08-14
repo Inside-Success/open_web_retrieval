@@ -17,9 +17,13 @@ def _result() -> dict[str, object]:
     return {
         "id": "https://openalex.org/W1",
         "title": "Conspiracy drivers online",
+        "doi": "https://doi.org/10.1/1",
+        "type": "article",
         "publication_date": "2024-01-02",
         "best_oa_location": {"pdf_url": "https://papers.example/1.pdf"},
-        "primary_location": {"source": {"display_name": "Research Journal"}},
+        "primary_location": {
+            "source": {"display_name": "Research Journal", "type": "journal"}
+        },
         "abstract_inverted_index": {"Conspiracy": [0], "drivers": [1]},
     }
 
@@ -57,6 +61,12 @@ def test_semantic_mode_uses_native_parameter_and_normalizes_provenance() -> None
         "why people share conspiracies"
     )
     assert hit.provider == "openalex"
+    assert hit.scholarly_metadata is not None
+    assert hit.scholarly_metadata.work_id == "https://openalex.org/W1"
+    assert hit.scholarly_metadata.doi == "https://doi.org/10.1/1"
+    assert hit.scholarly_metadata.work_type == "article"
+    assert hit.scholarly_metadata.venue_name == "Research Journal"
+    assert hit.scholarly_metadata.venue_type == "journal"
     assert hit.raw_payload is not None
     assert hit.raw_payload["_openalex_meta"]["mode"] == "semantic"
 

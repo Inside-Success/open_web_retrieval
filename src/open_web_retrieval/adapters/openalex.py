@@ -13,19 +13,23 @@ from types import TracebackType
 from typing import Any
 
 import httpx
-
 from open_web_retrieval.adapters.base import ProviderThrottle, SearchAdapter
 from open_web_retrieval.exceptions import (
     CapabilityNotSupportedError,
     OpenWebRetrievalError,
     RetrievalError,
 )
-from open_web_retrieval.models import OpenAlexQuery, SearchHit, SearchQuery
+from open_web_retrieval.models import (
+    OpenAlexQuery,
+    ScholarlyWorkMetadata,
+    SearchHit,
+    SearchQuery,
+)
 
 _WORKS_URL = "https://api.openalex.org/works"
 _OQL_URL = "https://api.openalex.org/"
 _SELECT_FIELDS = (
-    "id,title,doi,publication_date,relevance_score,best_oa_location,"
+    "id,title,doi,type,publication_date,relevance_score,best_oa_location,"
     "primary_location,abstract_inverted_index"
 )
 
@@ -267,6 +271,7 @@ def _normalize_results(
             else None
         )
         publisher = source.get("display_name") if isinstance(source, dict) else None
+        venue_type = source.get("type") if isinstance(source, dict) else None
 
         hits.append(
             SearchHit(
@@ -282,6 +287,13 @@ def _normalize_results(
                 # share one normalized cross-provider scale.
                 score_hint=None,
                 language=None,
+                scholarly_metadata=ScholarlyWorkMetadata(
+                    work_id=_optional_string(result.get("id")),
+                    doi=_optional_string(result.get("doi")),
+                    work_type=_optional_string(result.get("type")),
+                    venue_name=_optional_string(publisher),
+                    venue_type=_optional_string(venue_type),
+                ),
                 raw_payload=payload,
             ),
         )
