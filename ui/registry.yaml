@@ -1,0 +1,37 @@
+schema_version: ui-registry/v1
+project_id: inside-success-open-web-retrieval
+ui_status: active
+surfaces:
+  - id: owr-search-activity-workbench
+    lifecycle: canonical
+    source_path: workbench/frontend
+    backend_path: workbench/backend
+    purpose: Read-only inspection of recent open-web retrieval calls and provider statistics.
+    entrypoints:
+      frontend: http://localhost:5206
+      api: http://localhost:5205
+    run_commands:
+      install: make workbench-install
+      backend: make workbench-backend
+      frontend: make workbench-frontend
+    data_boundary:
+      mode: read-only
+      source: SQLite database selected by OWR_SEARCH_LOG_DB
+      default: ~/projects/data/owr_search_log.db
+    capabilities:
+      - Recent calls table with provider, trace, and error filters
+      - Search call detail inspection
+      - Provider call, latency, and error statistics
+    generated_output:
+      path: workbench/frontend/dist
+      disposition: ignored framework-native Vite output
+      exception: Preserve the existing Vite output path until a reviewed migration moves it under generated/ui.
+    verification_commands:
+      - cd workbench/frontend && npm run build
+    provenance:
+      introduced_commit: 257d3ed08ff20294f8bf6d1cbb3cb1221af2d483
+      prior_evidence: >-
+        Same commit and workbench code as BrianMills2718/open_web_retrieval
+        (verified identical package.json); this is the Inside-Success fork
+        of that repo. Puppeteer verified Recent and Stats views with a
+        one-call database fixture on the personal repo.

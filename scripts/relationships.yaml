@@ -47,6 +47,13 @@ couplings:
       - "docs/plans/13_governed-baseline-and-capability-ownership-rollout.md"
     description: "Governance helper surfaces must stay aligned with the local workflow contract."
     why: "These files now define how the repo participates in the governed baseline without silently enabling sanctioned worktrees."
+  - sources:
+      - "workbench/frontend/**"
+      - "workbench/backend/**"
+    docs:
+      - "ui/registry.yaml"
+    description: "A UI-serving file is about to be created or changed. Read ui/registry.yaml first -- this repo has one real surface (owr-search-activity-workbench); a change is very unlikely to need a second one."
+    why: "ui-continuity-policy was prose-only (agents voluntarily reading the registry via the /ui skill); this makes it a real edit-time gate, matching the pattern piloted in cybernetic_influence_v3 and applied to the sibling personal repo (BrianMills2718/open_web_retrieval)."
 
 architecture:
   - sources:
