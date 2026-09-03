@@ -519,6 +519,8 @@ class AsyncSourceFetcher:
             document_type=(
                 "html"
                 if "html" in (resource.content_type or "").lower()
+                else "text"
+                if method_used == "plain_text"
                 else "unknown"
             ),
             extraction_method=method_used,

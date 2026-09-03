@@ -416,6 +416,10 @@ def _extract_text(
         return "", "", {}, "binary", warnings
 
     html_text = _decode_text(resource.content_bytes)
+    media_type = (resource.content_type or "").split(";", 1)[0].strip().lower()
+    if media_type == "text/plain":
+        return html_text, "", {}, "plain_text", warnings
+
     trafilatura_preferred = method == "trafilatura" and resource.fetch_method != "render_playwright"
 
     text: str | None = None
@@ -1214,7 +1218,13 @@ class SourceFetcher:
             published_at_guess=_parse_date_string(metadata.get("date")),
             text=text,
             markdown=markdown,
-            document_type="html" if "html" in (resource.content_type or "").lower() else "unknown",
+            document_type=(
+                "html"
+                if "html" in (resource.content_type or "").lower()
+                else "text"
+                if method_used == "plain_text"
+                else "unknown"
+            ),
             extraction_method=method_used,
             warnings=warnings,
         )
