@@ -17,6 +17,7 @@ from open_web_retrieval.adapters.openalex import OpenAlexSearchAdapter
 from open_web_retrieval.adapters.reddit import RedditSearchAdapter
 from open_web_retrieval.adapters.searxng import SearxNGSearchAdapter
 from open_web_retrieval.adapters.tavily import TavilySearchAdapter
+from open_web_retrieval.adapters.x import XSearchAdapter
 from open_web_retrieval.cache import DiskCache
 from open_web_retrieval.exceptions import (
     OpenWebRetrievalError,
@@ -77,6 +78,7 @@ class OpenWebRetrievalClient:
         enable_reddit: bool = False,
         enable_hackernews: bool = False,
         enable_arxiv: bool = False,
+        enable_x: bool = False,
         arxiv_contact: str | None = None,
         timeout_seconds: float | None = None,
         adapters: Mapping[str, SearchAdapter] | None = None,
@@ -133,6 +135,10 @@ class OpenWebRetrievalClient:
                 configured_adapters.append(
                     RedditSearchAdapter(timeout_seconds=timeout_seconds or 20.0),
                 )
+            if enable_x:
+                configured_adapters.append(
+                    XSearchAdapter(timeout_seconds=timeout_seconds or 20.0),
+                )
             if enable_hackernews:
                 configured_adapters.append(
                     HackerNewsSearchAdapter(timeout_seconds=timeout_seconds or 15.0),
@@ -151,7 +157,7 @@ class OpenWebRetrievalClient:
                 context={
                     "reason": (
                         "provide a configured provider or enable_openalex / "
-                        "enable_reddit / enable_hackernews / enable_arxiv"
+                        "enable_reddit / enable_hackernews / enable_arxiv / enable_x"
                     ),
                 },
             )

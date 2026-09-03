@@ -13,10 +13,10 @@ MANIFEST = json.loads((ROOT / "UPSTREAM.json").read_text(encoding="utf-8"))
 def test_canonical_upstream_revision_is_explicit_and_immutable() -> None:
     assert MANIFEST["canonical_upstream"] == "BrianMills2718/open_web_retrieval"
     assert MANIFEST["upstream_revision"] == (
-        "531a0937258320cccbaac0e868a7f05f399e2de7"
+        "47f385cd18d6221a9780511be822ac68096f3b0c"
     )
     assert MANIFEST["accepted_source_commit"] == (
-        "531a0937258320cccbaac0e868a7f05f399e2de7"
+        "47f385cd18d6221a9780511be822ac68096f3b0c"
     )
     assert MANIFEST["relationship"] == "source_overlay_downstream"
 
@@ -59,7 +59,7 @@ def test_accepted_shared_capabilities_include_openalex_and_reddit() -> None:
     }.issubset(
         MANIFEST["accepted_shared_capabilities"]
     )
-    assert MANIFEST["upstream_version"] == "0.12.0"
+    assert MANIFEST["upstream_version"] == "0.13.0"
 
 
 def test_access_challenge_contract_is_accepted_shared_infrastructure() -> None:
@@ -71,3 +71,7 @@ def test_access_challenge_contract_is_accepted_shared_infrastructure() -> None:
     }.issubset(
         MANIFEST["accepted_shared_capabilities"]
     )
+
+
+def test_x_search_is_accepted_shared_infrastructure() -> None:
+    assert "x_search" in MANIFEST["accepted_shared_capabilities"]
