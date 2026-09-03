@@ -40,6 +40,7 @@ ProviderName = Literal[
     "hackernews",
     "arxiv",
     "x",
+    "github",
 ]
 AccessAlternativeKind = Literal[
     "official_api",

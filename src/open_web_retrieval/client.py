@@ -12,6 +12,7 @@ from open_web_retrieval.adapters.arxiv import ArxivSearchAdapter
 from open_web_retrieval.adapters.base import SearchAdapter, SearchAdapterFactory
 from open_web_retrieval.adapters.brave import BraveSearchAdapter
 from open_web_retrieval.adapters.exa import ExaSearchAdapter
+from open_web_retrieval.adapters.github import GitHubSearchAdapter
 from open_web_retrieval.adapters.hackernews import HackerNewsSearchAdapter
 from open_web_retrieval.adapters.openalex import OpenAlexSearchAdapter
 from open_web_retrieval.adapters.reddit import RedditSearchAdapter
@@ -79,6 +80,7 @@ class OpenWebRetrievalClient:
         enable_hackernews: bool = False,
         enable_arxiv: bool = False,
         enable_x: bool = False,
+        enable_github: bool = False,
         arxiv_contact: str | None = None,
         timeout_seconds: float | None = None,
         adapters: Mapping[str, SearchAdapter] | None = None,
@@ -139,6 +141,10 @@ class OpenWebRetrievalClient:
                 configured_adapters.append(
                     XSearchAdapter(timeout_seconds=timeout_seconds or 20.0),
                 )
+            if enable_github:
+                configured_adapters.append(
+                    GitHubSearchAdapter(timeout_seconds=timeout_seconds or 15.0),
+                )
             if enable_hackernews:
                 configured_adapters.append(
                     HackerNewsSearchAdapter(timeout_seconds=timeout_seconds or 15.0),
@@ -157,7 +163,8 @@ class OpenWebRetrievalClient:
                 context={
                     "reason": (
                         "provide a configured provider or enable_openalex / "
-                        "enable_reddit / enable_hackernews / enable_arxiv / enable_x"
+                        "enable_reddit / enable_hackernews / enable_arxiv / enable_x / "
+                        "enable_github"
                     ),
                 },
             )
