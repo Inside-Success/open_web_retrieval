@@ -1,3 +1,9 @@
+---
+plan_id: "inside-success-open-web-retrieval#8"
+dependencies: ["inside-success-open-web-retrieval#7"]
+dependency_evidence:
+  "inside-success-open-web-retrieval#7": "**Blocked By:** Plan #07 (review fixes)"
+---
 # Plan #08: Async/Sync Deduplication
 
 **Status:** Planned
