@@ -1,3 +1,8 @@
+---
+plan_id: "inside-success-open-web-retrieval#12"
+dependencies: []
+dependencies_reviewed: "2026-09-15"
+---
 # Plan #12: Multi-Provider Search & Fetch Adapters
 
 **Status:** Planned
