@@ -47,11 +47,11 @@ company-owned CI, documentation, and publication controls.
 
 Suggested reading order:
 
-1. `CLAUDE.md`
+1. `AGENTS.md`
 2. `docs/ops/CAPABILITY_DECOMPOSITION.md`
 3. `docs/REQUIREMENTS.md`
 4. `docs/ROADMAP.md`
-5. `docs/plans/CLAUDE.md`
+5. `docs/plans/AGENTS.md`
 
 ## Shared Capability Ownership
 

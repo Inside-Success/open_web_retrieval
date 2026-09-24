@@ -2,19 +2,19 @@
 
 required_reading:
   defaults:
-    - CLAUDE.md
+    - AGENTS.md
     - README.md
-    - docs/plans/CLAUDE.md
+    - docs/plans/AGENTS.md
 
 governance: []
 
 couplings:
   - sources:
-      - "CLAUDE.md"
+      - "AGENTS.md"
       - "README.md"
       - "docs/REQUIREMENTS.md"
       - "docs/ROADMAP.md"
-      - "docs/plans/CLAUDE.md"
+      - "docs/plans/AGENTS.md"
       - "docs/ops/CAPABILITY_DECOMPOSITION.md"
       - "meta-process.yaml"
       - "scripts/relationships.yaml"
@@ -22,7 +22,7 @@ couplings:
       - "README.md"
       - "docs/REQUIREMENTS.md"
       - "docs/ROADMAP.md"
-      - "docs/plans/CLAUDE.md"
+      - "docs/plans/AGENTS.md"
       - "docs/ops/CAPABILITY_DECOMPOSITION.md"
     description: "Top-level boundary, ownership, and rollout surfaces must stay aligned."
     why: "These files jointly define the repo boundary, current plan state, repo-local ownership source, and governance contract."
@@ -42,8 +42,8 @@ couplings:
       - "scripts/meta/*.py"
       - "meta-process.yaml"
     docs:
-      - "CLAUDE.md"
-      - "docs/plans/CLAUDE.md"
+      - "AGENTS.md"
+      - "docs/plans/AGENTS.md"
       - "docs/plans/13_governed-baseline-and-capability-ownership-rollout.md"
     description: "Governance helper surfaces must stay aligned with the local workflow contract."
     why: "These files now define how the repo participates in the governed baseline without silently enabling sanctioned worktrees."
@@ -72,8 +72,8 @@ architecture:
       - "scripts/meta/*.py"
       - "meta-process.yaml"
     current:
-      - "CLAUDE.md"
-      - "docs/plans/CLAUDE.md"
+      - "AGENTS.md"
+      - "docs/plans/AGENTS.md"
     target:
       - "docs/plans/13_governed-baseline-and-capability-ownership-rollout.md"
       - "docs/ops/CAPABILITY_DECOMPOSITION.md"

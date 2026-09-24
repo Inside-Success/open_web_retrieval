@@ -5,7 +5,7 @@ Last updated: 2026-04-08
 Track all implementation work here.
 
 This file is the canonical plan-index contract for `docs/plans/`.
-`docs/plans/AGENTS.md` mirrors it for Codex-facing loading.
+Both Claude Code and Codex load this file.
 
 ## Gap Summary
 

@@ -13,6 +13,8 @@ Both are keyless, so these tests are the only gate on their correctness.
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import httpx
 import pytest
 
@@ -200,8 +202,9 @@ class TestArxivAdapter:
 
     def test_recency_sorts_by_date_and_prunes_old_entries(self):
         seen = []
+        recent = (datetime.now(timezone.utc) - timedelta(days=3)).isoformat().replace("+00:00", "Z")
         body = self._feed(
-            self._entry("new", published="2026-07-20T00:00:00Z"),
+            self._entry("new", published=recent),
             self._entry("old", published="2019-01-01T00:00:00Z"),
         )
         adapter = self._adapter(body, capture=seen)
