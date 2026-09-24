@@ -1,26 +1,20 @@
 # open_web_retrieval - Canonical Repo Instructions
 
-<!-- GENERATED FILE: DO NOT EDIT DIRECTLY -->
-<!-- generated_by: scripts/meta/render_agents_md.py -->
-<!-- canonical_claude: CLAUDE.md -->
-<!-- canonical_relationships: scripts/relationships.yaml -->
-<!-- canonical_relationships_sha256: b14851da4c36 -->
-<!-- sync_check: python scripts/meta/check_agents_sync.py --check -->
-
-This file is a generated Codex-oriented projection of repo governance.
-Edit the canonical sources instead of editing this file directly.
-
-Canonical governance sources:
-- `CLAUDE.md` — human-readable project rules, workflow, and references
-- `scripts/relationships.yaml` — machine-readable ADR, coupling, and required-reading graph
-
-## Purpose
-
 **Version:** 0.8.0
 **Last verified:** 2026-08-12
 
 This repo is Inside Success's public source-overlay downstream of the reusable
 canonical upstream pinned in `UPSTREAM.json`.
+
+## Purpose
+
+- Search: Brave, SearxNG, Tavily, Exa, OpenAlex (keyless scholarly, OA-gated), arXiv (keyless), Hacker News (Algolia, keyless), and Reddit (OAuth; `domains_allow` = subreddit scoping; unbounded vote counts ship as `score_hint=None` with the raw value in `raw_payload`) adapters in a normalized contract.
+- Fetch: `httpx` direct fetch with error classification, blocked domains, per-domain rate limiting, Retry-After.
+- Render: optional Playwright-based fallback when direct fetch is insufficient.
+- Anti-bot: optional Crawl4AI escalation on 403 (`enable_antibot=True`).
+- SPA detection: auto-render JS shells via Playwright when extraction produces garbage.
+- Extract: text and markdown output via Trafilatura, with title/author/date/sitename metadata.
+- Provenance: every operation records provider, URL lineage, and fetch/extract method.
 
 ## Commands
 
@@ -35,13 +29,12 @@ make install-all       # Install with all optional deps
 make help              # Show all targets
 ```
 
-## Operating Rules
+## CI
 
-This projection keeps the highest-signal rules in always-on Codex context.
-For full project structure, detailed terminology, and any rule omitted here,
-read `CLAUDE.md` directly.
+GitHub Actions runs on push to main and PRs. Matrix: Python 3.10, 3.12.
+Workflow: `.github/workflows/test.yml`
 
-### Principles
+## Principles
 
 - `BrianMills2718/open_web_retrieval` is the canonical reusable upstream;
   this repository owns only explicit company overlays and a reviewed source pin.
@@ -54,19 +47,24 @@ read `CLAUDE.md` directly.
 - **Commit early and often.** Every verified increment gets its own commit.
 - **Continue autonomously** until milestone complete or real blocker.
 
-### Workflow
+## Workflow
 
 - Edit this file first when changing project policy.
-- Keep `AGENTS.md` as a generated mirror (via `scripts/meta/render_agents_md.py`).
+- Keep `AGENTS.md` as the single authored instruction source for both clients.
 - Do not keep implementation shortcuts that silently alter contract behavior.
 - Do not merge local-product UI concerns into this substrate.
 - Both clients accept `tool_call_logger: ToolCallLogger | None` for structured tool-call logging. The protocol is defined in `observability.py`. Compatible with `llm_client`'s tool-call logger at runtime (same callable interface).
 - Treat `docs/ops/CAPABILITY_DECOMPOSITION.md` as the repo-local source of
   record for shared capability ownership and boundary posture.
 
-## Machine-Readable Governance
+## Dependencies
 
-`scripts/relationships.yaml` is the source of truth for machine-readable governance in this repo: ADR coupling, required-reading edges, and doc-code linkage. This generated file does not inline that graph; it records the canonical path and sync marker, then points operators and validators back to the source graph. Prefer deterministic validators over prompt-only memory when those scripts are available.
+- **Required:** `httpx`, `pydantic`
+- **Optional:** `trafilatura` (`[extract]`), `playwright` (`[render]`), and
+  `crawl4ai` (`[antibot]`). Tool registration requires a separately authorized
+  private `llm_client` source checkout; never install the unrelated public PyPI
+  `llm-client` distribution.
+- **Observability:** `tool_call_logger` is a `Protocol`-based callable. When `llm_client` is installed, its tool-call logger is directly compatible.
 
 ## References
 
@@ -75,7 +73,7 @@ read `CLAUDE.md` directly.
 | `docs/REQUIREMENTS.md` | Capabilities, consumers, success criteria |
 | `docs/ROADMAP.md` | Version history and future direction |
 | `docs/ops/CAPABILITY_DECOMPOSITION.md` | Repo-local ownership ledger for the shared retrieval layer |
-| `docs/plans/CLAUDE.md` | Plan index and rollout status contract |
+| `docs/plans/AGENTS.md` | Plan index and rollout status contract |
 | `src/open_web_retrieval/models.py` | Schema contract |
 | `src/open_web_retrieval/client.py` | Retrieval orchestration |
 | `README.md` | Usage examples and observability setup |

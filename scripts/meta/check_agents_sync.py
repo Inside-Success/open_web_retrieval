@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check that generated AGENTS.md is in sync with canonical governance inputs."""
+"""Check authored AGENTS.md or a legacy CLAUDE-to-AGENTS projection."""
 
 from __future__ import annotations
 
@@ -25,15 +25,18 @@ REPO_ROOT = _detect_repo_root(SCRIPT_PATH)
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from enforced_planning.agents_rendering import build_renderer
+from enforced_planning.agents_rendering import build_renderer  # noqa: E402
 
 
 def _renderer_entrypoint(repo_root: Path) -> Path:
     """Return the truthful render entrypoint path for this repo layout."""
 
+    source_renderer = repo_root / "scripts" / "render_agents_md.py"
+    installed_renderer = repo_root / "scripts" / "meta" / "render_agents_md.py"
     candidates = (
-        repo_root / "scripts" / "meta" / "render_agents_md.py",
-        repo_root / "scripts" / "render_agents_md.py",
+        (source_renderer, installed_renderer)
+        if SCRIPT_PATH.parent.name == "scripts"
+        else (installed_renderer, source_renderer)
     )
     for candidate in candidates:
         if candidate.exists():
@@ -72,17 +75,17 @@ def render_agents_markdown(inputs):
 def parse_args() -> argparse.Namespace:
     """Parse CLI arguments for the sync checker."""
     parser = argparse.ArgumentParser(
-        description="Check whether AGENTS.md matches canonical governance inputs",
+        description="Check authored AGENTS.md or a legacy generated projection",
     )
     parser.add_argument(
         "--repo-root",
         default=".",
-        help="Repo root containing CLAUDE.md and scripts/relationships.yaml",
+        help="Repo root containing AGENTS.md and optional legacy CLAUDE.md",
     )
     parser.add_argument(
         "--claude-file",
         default="CLAUDE.md",
-        help="Repo-relative path to canonical CLAUDE.md",
+        help="Repo-relative path to the legacy CLAUDE.md source, when present",
     )
     parser.add_argument(
         "--relationships-file",
@@ -92,7 +95,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-file",
         default="AGENTS.md",
-        help="Repo-relative path to generated AGENTS.md",
+        help="Repo-relative path to AGENTS.md",
     )
     parser.add_argument(
         "--template",
@@ -108,10 +111,21 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
-    """Compare current AGENTS.md to the deterministic rendered output."""
+    """Check authored AGENTS.md or a legacy generated projection."""
     args = parse_args()
     repo_root = Path(args.repo_root).resolve()
     template_path = Path(args.template).resolve()
+    source_path = repo_root / args.claude_file
+    output_path = repo_root / args.output_file
+    if not source_path.exists() and args.claude_file == "CLAUDE.md":
+        if output_path.is_symlink() or not output_path.is_file():
+            print(f"Authored AGENTS.md is missing or not a regular file: {output_path}")
+            return 1
+        if "<!-- GENERATED FILE: DO NOT EDIT DIRECTLY -->" in output_path.read_text(encoding="utf-8"):
+            print(f"AGENTS.md still declares itself generated without a source: {output_path}")
+            return 1
+        print(f"AGENTS.md is the authored instruction source: {output_path}")
+        return 0
     try:
         inputs = resolve_inputs(
             repo_root=repo_root,

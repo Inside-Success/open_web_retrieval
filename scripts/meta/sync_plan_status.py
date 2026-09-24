@@ -16,7 +16,7 @@ Usage:
 
 Status is tracked in two places:
 1. Individual plan files (docs/plans/NN_*.md) - SOURCE OF TRUTH
-2. Index table in docs/plans/CLAUDE.md
+2. Index table in docs/plans/AGENTS.md
 
 This script ensures they stay in sync and validates that status matches content.
 """
@@ -28,7 +28,7 @@ from pathlib import Path
 
 
 PLANS_DIR = Path("docs/plans")
-INDEX_FILE = PLANS_DIR / "CLAUDE.md"
+INDEX_FILE = PLANS_DIR / "AGENTS.md"
 
 # Status emoji mapping
 STATUS_MAP = {
