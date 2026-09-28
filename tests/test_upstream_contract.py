@@ -13,10 +13,10 @@ MANIFEST = json.loads((ROOT / "UPSTREAM.json").read_text(encoding="utf-8"))
 def test_canonical_upstream_revision_is_explicit_and_immutable() -> None:
     assert MANIFEST["canonical_upstream"] == "BrianMills2718/open_web_retrieval"
     assert MANIFEST["upstream_revision"] == (
-        "2e6c8921887bf36e9810d2707fc78a7b3904f945"
+        "763c6ea3cc4e1b65dc0fc62ab293a759e2d52385"
     )
     assert MANIFEST["accepted_source_commit"] == (
-        "2e6c8921887bf36e9810d2707fc78a7b3904f945"
+        "763c6ea3cc4e1b65dc0fc62ab293a759e2d52385"
     )
     assert MANIFEST["relationship"] == "source_overlay_downstream"
 

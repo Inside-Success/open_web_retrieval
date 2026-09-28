@@ -21,6 +21,16 @@ from open_web_retrieval.observability import (
 )
 
 
+def _truncate_utf8(data: bytes, max_bytes: int) -> bytes:
+    """Truncate `data` to at most `max_bytes`, backing up to the previous valid
+    UTF-8 character boundary instead of splitting a multibyte character mid-sequence.
+    A plain `data[:max_bytes]` slice can land inside a multibyte character, producing
+    bytes that are not valid UTF-8 even though the resource declares `charset=utf-8`.
+    """
+    truncated = data[:max_bytes]
+    return truncated.decode("utf-8", errors="ignore").encode("utf-8")
+
+
 class JinaReaderAdapter:
     """Fetch one public URL as Markdown through Jina Reader.
 
@@ -162,7 +172,7 @@ class JinaReaderAdapter:
             )
             raise error from exc
 
-        content_bytes = content.encode("utf-8")[: request.max_bytes]
+        content_bytes = _truncate_utf8(content.encode("utf-8"), request.max_bytes)
         resource = FetchedResource(
             requested_url=request.url,
             final_url=final_url,
