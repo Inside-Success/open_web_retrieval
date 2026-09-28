@@ -133,7 +133,14 @@ class RedditSearchAdapter(SearchAdapter):
         if query.domains_deny:
             raise CapabilityNotSupportedError("Reddit does not support domain exclusion", context={"provider": "reddit"})
         token = self._access_token()
-        params = {"q": self._scoped_query(query), "limit": str(min(query.top_k, 100)), "sort": "relevance", "type": "link"}
+        # Reddit only exposes coarse t=day/week/month/year/all timeframes, so exact
+        # recency_days filtering happens locally below, after the request. If we only
+        # ever asked for `top_k` raw results, qualifying posts beyond that first page
+        # would be silently dropped by the local cutoff even though more exist.
+        # Overfetch (capped at Reddit's page-size limit) whenever recency filtering is
+        # active, mirroring the arXiv adapter's `min(top_k * 3, 100)` pattern.
+        limit = min(query.top_k * 3, 100) if query.recency_days else query.top_k
+        params = {"q": self._scoped_query(query), "limit": str(min(limit, 100)), "sort": "relevance", "type": "link"}
         if query.recency_days is not None:
             days = query.recency_days
             params["t"] = "day" if days <= 1 else "week" if days <= 7 else "month" if days <= 31 else "year" if days <= 366 else "all"

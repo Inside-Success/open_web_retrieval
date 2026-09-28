@@ -72,7 +72,15 @@ __all__ = [
     "suggest_access_alternatives",
 ]
 
-# Auto-register @tool decorated functions
+# Auto-register @tool decorated functions.
+#
+# The private ``llm_client`` package is an optional dependency, so its absence is
+# tolerated -- but only the absence of the top-level package itself. A missing
+# ``llm_client`` submodule such as ``llm_client.tools`` means an installed but
+# incompatible llm_client, which is a real breakage, not an absent optional
+# dependency. That, and every other import failure raised while loading the tools
+# module -- including a transitive failure inside a module it imports -- is
+# re-raised, per the fail-loud principle.
 try:
     from open_web_retrieval.adapters.tools import (  # noqa: F401
         brave_search,
@@ -81,5 +89,6 @@ try:
         searxng_search,
         tavily_search,
     )
-except ImportError:
-    pass  # llm_client not installed
+except ModuleNotFoundError as exc:  # pragma: no cover - depends on optional dep
+    if exc.name != "llm_client":
+        raise

@@ -28,9 +28,17 @@ from open_web_retrieval.models import (
 
 _WORKS_URL = "https://api.openalex.org/works"
 _OQL_URL = "https://api.openalex.org/"
+# cited_by_count is the whole reason a consumer reaches for OpenAlex rather
+# than a web search: it is a corroboration signal controlled by third parties
+# (other authors), not by OpenAlex or by us. relevance_score is OpenAlex's own
+# text-match opinion and cannot serve that purpose. Omitting cited_by_count
+# from the select made every hit read as zero citations rather than as
+# unmeasured -- ecosystem-ops scout scored OpenAlex corroboration at 0 for
+# every result while OpenAlex was deliberately exempted from its recency window
+# precisely because it ranks by citation weight (found 2026-09-08).
 _SELECT_FIELDS = (
-    "id,title,doi,type,publication_date,relevance_score,best_oa_location,"
-    "primary_location,abstract_inverted_index"
+    "id,title,doi,type,publication_date,relevance_score,cited_by_count,"
+    "best_oa_location,primary_location,abstract_inverted_index"
 )
 
 
