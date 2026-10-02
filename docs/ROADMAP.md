@@ -1,7 +1,7 @@
 # open_web_retrieval — Roadmap
 
 **Status**: Active
-**Last updated**: 2026-08-13
+**Last updated**: 2026-10-02
 
 See `REQUIREMENTS.md` for capabilities inventory and success criteria.
 
@@ -38,13 +38,13 @@ through opt-in Crawl4AI and Jina Reader fallbacks with attempt provenance.
 Explicit CAPTCHAs fail closed; proxy rotation, fingerprint evasion, credential
 reuse, login bypass, and paywall bypass remain out of scope.
 
-**M3 OpenAlex resilience slice (in review, 2026-08-13):** The adapter retries
+**M3 OpenAlex resilience slice (merged, 2026-08-13):** The adapter retries
 one identical, read-only keyword, semantic, or OQL request after a transport
 failure or HTTP 5xx. Each attempt re-enters the shared provider throttle;
 non-transient 4xx responses fail immediately, and a second transient failure
 remains a typed visible error. Query choice stays with the consuming agent.
 
-**M3 blocked-scholarship evidence slice (in review, 2026-08-13):** The
+**M3 blocked-scholarship evidence slice (merged, 2026-08-13):** The
 agent-facing OpenAlex serialization bridge now preserves the normalized public
 abstract as optional `raw_content`. Consumers may use it as an explicitly
 provenance-marked abstract fallback when the publisher page is blocked; it is
@@ -90,9 +90,9 @@ are selected by the authorized consuming `llm_client` runtime.
 opt-in OAuth post-search adapter, subreddit scoping, conservative shared pacing,
 runtime-only credential handling, and normalized discussion provenance.
 
-**What's next:** prove the agent-driven retrieval MVP below before adding more
-providers or pursuing a public package release. Reddit remains a separate
-credentialed slice. Embedding execution belongs to `llm_client`; consumer-owned
+**What's next:** finish the agent-driven retrieval MVP gates below (M3 representative
+resilience run, M4 clean-machine gate) before adding more providers or pursuing a
+public package release. Reddit remains a separate credentialed slice. Embedding execution belongs to `llm_client`; consumer-owned
 chunking, similarity policy, and vector storage are not MVP blockers.
 
 ---
@@ -120,14 +120,16 @@ what competing explanations exist, and how has the evidence changed since
 |---|---|---|---|---|---|
 | Fresh authorized checkout, configured `llm_client`, no committed secrets | Give the goal to the retrieval-capable agent; it chooses and executes normalized tools | Saved trace plus normalized evidence bundle showing queries, provider/mode choices, hits, fetch/extract methods, failures, and citations | Live traced run → replayable saved artifact → mocked contract tests | Missing credentials or an explicit CAPTCHA fails before unauthorized/live fallback I/O | One passing exemplar does not prove universal site access, exhaustive recall, or production-scale economics |
 
-Current status is `agent retrieval vertical accepted / consumer partially
-integrated / stakeholder outcome not yet observed`. OpenAlex keyword probes,
-Hacker News, Reddit, fetch/extract, and typed access recovery are already
-consumed by Grounded Research. The retained
+Current status is `agent retrieval vertical accepted / Grounded adoption accepted
+(default-off) / representative-resilience and clean-machine gates not yet
+evidenced`. OpenAlex, Hacker News, Reddit, X, GitHub, fetch/extract, and typed
+access recovery are consumed by Grounded Research. The retained
 [M1 receipt](MVP_M1_AGENT_RETRIEVAL_RECEIPT.md) proves that a real agent selected
 semantic and OQL modes, constructed both queries from the goal, and received
-normalized live evidence. Grounded has not yet adopted that agent/query-plan
-seam end to end.
+normalized live evidence. Grounded adopted the seam on 2026-08-13 (receipts in
+`grounded-research/docs/`: `MVP_M2_GROUNDED_OPENALEX_RECEIPT.md`,
+`MVP_M5_ACCEPTANCE.md`; the maintained path is a validated typed
+`OpenAlexQueryPlan`, not a Python tool loop).
 
 The ownership boundary remains:
 
@@ -160,10 +162,10 @@ gap.
 |---|---|---|---|
 | M0 — canonical substrate | Personal upstream and public downstream expose the same approved Python package; Grounded pins the reviewed downstream revision | Repository ownership and source-port contract | Complete |
 | M1 — agent retrieval vertical | On the canonical exemplar, a real `llm_client` run selects at least one appropriate scholarly mode (`semantic` or `oql`) plus any justified complementary provider, constructs valid arguments, and saves a trace and normalized evidence bundle. A malformed query fails visibly; no hard-coded exemplar query counts as success | Existing agent tool surface and authorized model route | Complete — [receipt](MVP_M1_AGENT_RETRIEVAL_RECEIPT.md) |
-| M2 — Grounded adoption | Grounded Research consumes the selected agent/query-plan seam and completes collection without bypassing normalized contracts. The trace links goal → tool call → `SearchHit` → fetched/extracted evidence; existing deterministic budgets and provider-specific safety remain enforceable | M1 contract decision | **Next execution frontier** |
-| M3 — representative resilience | Run one scholarly case, one current-web case, one practitioner case, and one public access-challenge case. At least three complete with useful evidence; every failure is typed and retained. Missing credentials and explicit CAPTCHA tests prove zero unauthorized HTTP | M2 consumer path; Reddit case only when account use is authorized | In progress — bounded OpenAlex transient retry implemented and mock-verified |
+| M2 — Grounded adoption | Grounded Research consumes the selected agent/query-plan seam and completes collection without bypassing normalized contracts. The trace links goal → tool call → `SearchHit` → fetched/extracted evidence; existing deterministic budgets and provider-specific safety remain enforceable | M1 contract decision | Complete (2026-08-13) — Grounded `MVP_M2_GROUNDED_OPENALEX_RECEIPT.md`, with a recorded provider-resilience gap that the M3 retry slice addresses |
+| M3 — representative resilience | Run one scholarly case, one current-web case, one practitioner case, and one public access-challenge case. At least three complete with useful evidence; every failure is typed and retained. Missing credentials and explicit CAPTCHA tests prove zero unauthorized HTTP | M2 consumer path; Reddit case only when account use is authorized | **Next execution frontier** — bounded OpenAlex transient retry and blocked-scholarship abstract fallback are merged and mock-verified; the four-case representative run has no retained receipt in this repository |
 | M4 — clean-machine MVP gate | A fresh clone of the public downstream and Grounded Research installs in new virtual environments, resolves only authorized dependencies, passes credential-free tests, and reproduces one retained live journey from the README/runbook | M3; reviewed downstream source sync | Planned |
-| M5 — MVP review | Brian can inspect the trace, evidence bundle, and grounded report and judge whether provider choices and evidence are useful. Continue to pilot only if the result is understandable without repository knowledge and no material failure is silent | M4 artifact | Planned |
+| M5 — MVP review | Brian can inspect the trace, evidence bundle, and grounded report and judge whether provider choices and evidence are useful. Continue to pilot only if the result is understandable without repository knowledge and no material failure is silent | M4 artifact | Engineering acceptance recorded 2026-08-13 (Grounded `MVP_M5_ACCEPTANCE.md`, default-off); Brian's usefulness review not recorded |
 
 #### Planning frontier
 
@@ -197,13 +199,11 @@ Non-goals through MVP: recursive crawling, a general scraping framework, proxy
 rotation, CAPTCHA solving, login/paywall bypass, a new workflow engine, a vector
 database, a broad UI, and support for every adapter in every run.
 
-**Selected next goal:** adopt the accepted M1 agent/query-plan seam in Grounded
-Research as the smallest M2 vertical. Preserve Grounded's deterministic budgets
-and evidence-selection ownership, then retain one trace linking the natural-
-language goal through the contextual OpenAlex call and normalized `SearchHit`
-to fetched/extracted evidence. Do not change an existing Grounded dependency or
-workflow until its focused consumer checks pass and the impact is raised for
-review.
+**Selected next goal:** run the M3 representative-resilience cases (scholarly,
+current-web, practitioner, public access-challenge) through the accepted
+Grounded seam and retain typed failures and receipts. Do not change an existing
+Grounded dependency or workflow until its focused consumer checks pass and the
+impact is raised for review.
 
 ### Evidence-Driven Maintenance: Consumer-Expressive Retrieval Controls
 

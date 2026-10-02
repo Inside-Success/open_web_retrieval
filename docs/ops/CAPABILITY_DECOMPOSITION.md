@@ -14,7 +14,7 @@ Use this together with:
 - [`../REQUIREMENTS.md`](../REQUIREMENTS.md)
 - [`../ROADMAP.md`](../ROADMAP.md)
 - [`../../README.md`](../../README.md)
-- [`../../CLAUDE.md`](../../CLAUDE.md)
+- [`../../AGENTS.md`](../../AGENTS.md)
 
 ## Role
 

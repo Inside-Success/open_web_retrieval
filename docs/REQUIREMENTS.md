@@ -10,7 +10,7 @@
 
 A shared Python library that gives any project the ability to search the web,
 fetch pages, and extract clean text — with provenance, error classification,
-and configurable resilience. It's shared infrastructure per the root CLAUDE.md:
+and configurable resilience. It's shared infrastructure per the workspace AGENTS.md:
 "general capabilities any project uses."
 
 ## What This Is NOT
@@ -119,8 +119,8 @@ The library fails if:
 
 ## Priority Order
 
-The proposed v0.9 capability slice is implemented on its feature branch. See
-ROADMAP.md for version history and merge status.
+Capability priorities and version history live in ROADMAP.md; the v0.9 keyless
+source slice shipped as v0.9.0 (2026-08-12).
 
 ---
 

@@ -363,3 +363,5 @@ hits = client.search(query)
 
 The shared Exa adapter uses `type="deep"` by default. Exa-specific fields such as
 `highlights`, `author`, and `output` remain in `SearchHit.raw_payload`.
+
+[Wiki routing stub](wiki/index.md)

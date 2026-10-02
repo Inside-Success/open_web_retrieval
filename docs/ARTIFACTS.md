@@ -35,7 +35,7 @@ Wiki home: http://localhost:8088/index.php/Project_Wiki
 | Artifact | Evidence | Notes |
 |---|---|---|
 | [docs/REQUIREMENTS.md](REQUIREMENTS.md) | Scope and shipped capabilities | Best contract document. |
-| [docs/ROADMAP.md](ROADMAP.md) | Shipped version history | Shows feature progression through v0.8.2. |
+| [docs/ROADMAP.md](ROADMAP.md) | Shipped version history | Shows feature progression through v0.11.0 and the agent-retrieval MVP gates. |
 | [docs/SOTA_RESEARCH.md](SOTA_RESEARCH.md) | Tool landscape | Documents why httpx/trafilatura plus bounded escalation was chosen. |
 | [docs/notebooks/04_retrieval_control_surface_and_behavior_verification.ipynb](notebooks/04_retrieval_control_surface_and_behavior_verification.ipynb) | Control-surface verification | Notebook artifact for retrieval controls. |
 | [docs/notebooks/05_exa_retrieval_instruction_surface.ipynb](notebooks/05_exa_retrieval_instruction_surface.ipynb) | Exa instruction surface | Notebook artifact for provider instruction behavior. |

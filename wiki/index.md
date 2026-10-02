@@ -1,3 +1,15 @@
+---
+id: inside-success-open-web-retrieval-wiki-index
+type: index
+title: "Inside Success Open Web Retrieval wiki routing stub"
+status: generated
+authority: derived
+owner: project-meta/scripts/generate_wiki_routing_stub.py
+as_of: 2026-10-02
+visibility: unknown
+source_of_truth: false
+---
+
 # Inside Success Open Web Retrieval
 
 Routing stub generated under Plan #268 (project-meta) from this repository's own declared metadata. It states what is known and what is not; it does not invent purpose or status.
@@ -15,17 +27,16 @@ Inside Success downstream of the shared Open Web Retrieval substrate, with organ
 ## Read next
 
 - [Operating rules](../AGENTS.md)
-- [Operating rules (Codex mirror)](../AGENTS.md)
 - [Project overview](../README.md)
+- [Roadmap](../docs/ROADMAP.md)
 - [Active plan queue](../docs/plans/AGENTS.md)
 
 ## Coverage and unknowns
 
-This stub is a routing floor (Plan #268 `route_only` profile), not enrichment. Known gaps: no declared roadmap or current-state authority; no declared architecture-decision index.
+This stub is a routing floor (Plan #268 `route_only` profile), not enrichment. Known gaps: no declared architecture-decision index.
 
 | gap | who closes it |
 | --- | --- |
-| no declared roadmap or current-state authority | the repository owner; Plan #254 orders enrichment |
 | no declared architecture-decision index | the repository owner |
 
 ## If this page did not answer your question
