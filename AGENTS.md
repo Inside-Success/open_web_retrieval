@@ -3,8 +3,10 @@
 **Version:** 0.8.0
 **Last verified:** 2026-08-12
 
-This repo is Inside Success's public source-overlay downstream of the reusable
-canonical upstream pinned in `UPSTREAM.json`.
+This repo is the independent, canonical Inside Success copy of
+`open_web_retrieval`. It was a source-overlay downstream of Brian Mills's
+personal repository until 2026-10-03; `UPSTREAM.json` keeps that relationship
+as history only.
 
 ## Purpose
 
@@ -36,9 +38,11 @@ Workflow: `.github/workflows/test.yml`
 
 ## Principles
 
-- `BrianMills2718/open_web_retrieval` is the canonical reusable upstream;
-  this repository owns only explicit company overlays and a reviewed source pin.
-- Do not merge or cherry-pick the independent repository histories.
+- `Inside-Success/open_web_retrieval` is canonical for Inside Success. Do not
+  sync from, merge from, cherry-pick from, port from, or open contribution
+  pull requests to the former personal upstream; it is no longer tracked.
+- Company changes land here directly through normal pull requests; the package
+  tree no longer has to match any upstream snapshot.
 - Do not make public installation depend on private Git credentials.
 - Domain repos should consume these primitives before hand-rolling web search, fetch, render, or extraction logic.
 - Keep the API intentionally small; avoid speculative abstractions.
@@ -77,4 +81,4 @@ Workflow: `.github/workflows/test.yml`
 | `src/open_web_retrieval/models.py` | Schema contract |
 | `src/open_web_retrieval/client.py` | Retrieval orchestration |
 | `README.md` | Usage examples and observability setup |
-| `UPSTREAM.json` | Immutable upstream revision, overlay boundary, and synchronization rules |
+| `UPSTREAM.json` | Independence declaration (no sync) plus the former upstream relationship as history |

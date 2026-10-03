@@ -1,37 +1,48 @@
 {
-  "schema_version": 1,
-  "relationship": "source_overlay_downstream",
-  "canonical_upstream": "BrianMills2718/open_web_retrieval",
-  "upstream_revision": "763c6ea3cc4e1b65dc0fc62ab293a759e2d52385",
-  "accepted_source_commit": "763c6ea3cc4e1b65dc0fc62ab293a759e2d52385",
-  "source_tree_sha256": "e03b059b554bf3aa3e2bc210749fa123a604cb15896ba1692d599e6effce8e8a",
-  "upstream_version": "0.14.0",
+  "schema_version": 2,
+  "repository_role": "inside_success_independent_canonical",
+  "company_repository": "Inside-Success/open_web_retrieval",
+  "canonical_repository": "Inside-Success/open_web_retrieval",
+  "canonical_upstream": null,
+  "former_upstream": {
+    "repository": "BrianMills2718/open_web_retrieval",
+    "relationship": "source_overlay_downstream",
+    "last_integrated_commit": "763c6ea3cc4e1b65dc0fc62ab293a759e2d52385",
+    "accepted_source_commit": "763c6ea3cc4e1b65dc0fc62ab293a759e2d52385",
+    "source_tree_sha256_at_last_integration": "e03b059b554bf3aa3e2bc210749fa123a604cb15896ba1692d599e6effce8e8a",
+    "upstream_version_at_last_integration": "0.14.0",
+    "accepted_shared_capabilities": [
+      "hackernews_search",
+      "arxiv_search",
+      "provider_throttling",
+      "openalex_search",
+      "openalex_agent_abstract_provenance",
+      "openalex_transient_retry",
+      "reddit_search",
+      "jina_reader_fetch",
+      "access_challenge_fallback",
+      "typed_access_alternatives",
+      "access_block_classifier",
+      "x_search",
+      "github_search"
+    ],
+    "disconnected_on": "2026-10-03",
+    "reason": "The upstream maintainer, Brian Mills, left Inside Success on 2026-10-02. The company copy now stands on its own and is the canonical Inside Success repository."
+  },
+  "sync": {
+    "direction": "none",
+    "upstream_contributions": "none",
+    "company_changes_allowed": true,
+    "source_parity_required": false
+  },
   "runtime_dependency": false,
-  "runtime_dependency_reason": "Both repositories currently publish the same distribution and import namespace, and the canonical upstream is private while this downstream is public.",
-  "accepted_shared_capabilities": [
-    "hackernews_search",
-    "arxiv_search",
-    "provider_throttling",
-    "openalex_search",
-    "openalex_agent_abstract_provenance",
-    "openalex_transient_retry",
-    "reddit_search",
-    "jina_reader_fetch",
-    "access_challenge_fallback",
-    "typed_access_alternatives",
-    "access_block_classifier",
-    "x_search",
-    "github_search"
-  ],
-  "downstream_only_capabilities": [],
+  "runtime_dependency_reason": "This repository does not depend on the former upstream at runtime; public installation must not require private Git credentials.",
   "excluded_dependencies": [
     "llm-client"
   ],
-  "sync_rules": [
-    "Do not merge or cherry-pick histories between the repositories.",
-    "Port shared source changes through reviewed commits with provenance.",
-    "Keep the tracked Python package tree byte-identical to the accepted upstream revision.",
-    "Keep company-only capabilities isolated until separately accepted upstream.",
+  "notes": [
+    "Inside-Success/open_web_retrieval is canonical for Inside Success. Do not sync from, merge from, cherry-pick from, or open contribution pull requests to the former upstream; it is a separate personal project and is no longer tracked.",
+    "The Python package tree may now diverge from the former upstream snapshot; former_upstream records the last integrated revision and its source-tree digest as history only.",
     "Do not make public installation depend on private Git credentials."
   ]
 }
