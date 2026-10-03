@@ -26,24 +26,19 @@ Crawl4AI integrations; async and sync clients; caching; and bounded call
 observability. Provider support is capability-specific and should not be
 inferred from adapter registration alone.
 
-## Upstream relationship
+## Repository relationship
 
-The reusable canonical upstream is `BrianMills2718/open_web_retrieval`. This
-public repository is a source-overlay downstream pinned by [`UPSTREAM.json`](./UPSTREAM.json).
-The repositories have independent histories; shared changes move through
-reviewed source ports with commit provenance, never history merges or
-cherry-picks.
+This repository is the independent, canonical Inside Success copy of
+`open_web_retrieval`. Until 2026-10-03 it was a source-overlay downstream of
+Brian Mills's personal repository; that relationship ended when he left Inside
+Success, and [`UPSTREAM.json`](./UPSTREAM.json) now records it as history only.
+Changes are made here directly through normal pull requests. Nothing is synced
+from, ported from, or contributed back to the former upstream.
 
-This package does not declare the private upstream as a runtime dependency.
-Both repositories currently use the same distribution/import name, and public
-CI must remain installable without private Git credentials. OpenAlex and Reddit
-are accepted shared source ports from the canonical upstream. Embedding model
+This package has no runtime dependency on any private repository, and public
+CI must remain installable without private Git credentials. Embedding model
 execution belongs to the separately installed private `llm_client`; consumers
 own chunking, similarity policy, and vector storage.
-
-The tracked Python package is byte-identical to the upstream revision recorded
-in `UPSTREAM.json`; the public repository retains independent Git history and
-company-owned CI, documentation, and publication controls.
 
 Suggested reading order:
 

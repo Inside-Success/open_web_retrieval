@@ -16,7 +16,7 @@ Routing stub generated under Plan #268 (project-meta) from this repository's own
 
 ## Purpose
 
-Inside Success downstream of the shared Open Web Retrieval substrate, with organization-specific adapters and integration history kept separate from the personal upstream.
+Independent, canonical Inside Success copy of the Open Web Retrieval substrate (formerly a downstream of Brian Mills's personal repository; no upstream sync since 2026-10-03).
 
 ## Declared scope
 

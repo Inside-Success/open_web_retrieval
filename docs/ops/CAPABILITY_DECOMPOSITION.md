@@ -18,9 +18,11 @@ Use this together with:
 
 ## Role
 
-This repository is Inside Success's public source-overlay downstream. The
-canonical reusable upstream and accepted revision are declared in
-`../../UPSTREAM.json`.
+This repository is the independent, canonical Inside Success copy of
+`open_web_retrieval`. It was a source-overlay downstream of Brian Mills's
+personal repository until 2026-10-03; `../../UPSTREAM.json` records that
+former relationship as history only. Nothing is synced from or contributed to
+the former upstream.
 
 It owns:
 
@@ -44,12 +46,12 @@ Those stay in consuming projects, `llm_client`, or `project-meta`.
 
 | Capability | Current owner | Intended owner | Class | Posture | Notes |
 |---|---|---|---|---|---|
-| Generic search/fetch/extract contracts and reusable resilience primitives | `BrianMills2718/open_web_retrieval` | canonical personal upstream | shared infrastructure | consume through reviewed source ports | `UPSTREAM.json` pins the accepted revision; histories remain independent. |
-| OpenAlex scholarly works search | `BrianMills2718/open_web_retrieval` | canonical personal upstream | shared infrastructure | consume through reviewed source port | Accepted at the immutable revision in `UPSTREAM.json`; includes keyword, native semantic, works-only OQL, pacing, and agent-tool contracts. |
-| Reddit practitioner search | `BrianMills2718/open_web_retrieval` | canonical personal upstream | shared infrastructure | consume through reviewed source port | Accepted at the immutable revision in `UPSTREAM.json`; downstream keeps its compatible source overlay so public installation remains independent of private Git credentials. |
-| X/Twitter search | `BrianMills2718/open_web_retrieval` | canonical personal upstream | shared infrastructure | consume through reviewed source port | Accepted at the immutable revision in `UPSTREAM.json`; single-key `TWITTERAPI_IO_API_KEY` auth via twitterapi.io, modeled on the Reddit adapter's shape. |
-| GitHub repository search | `BrianMills2718/open_web_retrieval` | canonical personal upstream | shared infrastructure | consume through reviewed source port | Accepted at the immutable revision in `UPSTREAM.json`; single-token `GITHUB_SEARCH_TOKEN` auth against GitHub's own search API, modeled on the Reddit/X adapters' shape. |
-| Public-page challenge classification and Jina fallback | `BrianMills2718/open_web_retrieval` | canonical personal upstream | shared infrastructure | consume through reviewed source port | Typed access outcomes and opt-in Crawl4AI→Jina fallback; CAPTCHA, login, and paywall bypass remain excluded. |
+| Generic search/fetch/extract contracts and reusable resilience primitives | `Inside-Success/open_web_retrieval` | `Inside-Success/open_web_retrieval` | shared infrastructure | own and change directly | Originally ported from the former personal upstream (history in `UPSTREAM.json`); no further syncing. |
+| OpenAlex scholarly works search | `Inside-Success/open_web_retrieval` | `Inside-Success/open_web_retrieval` | shared infrastructure | own and change directly | Ported from the former personal upstream before 2026-10-03 (history in `UPSTREAM.json`); includes keyword, native semantic, works-only OQL, pacing, and agent-tool contracts. |
+| Reddit practitioner search | `Inside-Success/open_web_retrieval` | `Inside-Success/open_web_retrieval` | shared infrastructure | own and change directly | Ported from the former personal upstream before 2026-10-03 (history in `UPSTREAM.json`); downstream keeps its compatible source overlay so public installation remains independent of private Git credentials. |
+| X/Twitter search | `Inside-Success/open_web_retrieval` | `Inside-Success/open_web_retrieval` | shared infrastructure | own and change directly | Ported from the former personal upstream before 2026-10-03 (history in `UPSTREAM.json`); single-key `TWITTERAPI_IO_API_KEY` auth via twitterapi.io, modeled on the Reddit adapter's shape. |
+| GitHub repository search | `Inside-Success/open_web_retrieval` | `Inside-Success/open_web_retrieval` | shared infrastructure | own and change directly | Ported from the former personal upstream before 2026-10-03 (history in `UPSTREAM.json`); single-token `GITHUB_SEARCH_TOKEN` auth against GitHub's own search API, modeled on the Reddit/X adapters' shape. |
+| Public-page challenge classification and Jina fallback | `Inside-Success/open_web_retrieval` | `Inside-Success/open_web_retrieval` | shared infrastructure | own and change directly | Typed access outcomes and opt-in Crawl4AI→Jina fallback; CAPTCHA, login, and paywall bypass remain excluded. |
 | Embedding model execution | `llm_client` | `llm_client` | consumed shared infrastructure | consume directly from applications | Provider routing, credentials, budgets, cost, tracing, and embedding results belong to `llm_client`; this repository does not depend on it at runtime. Chunking, similarity policy, and vector storage belong to consumers. |
 | Optional render and anti-bot escalation backends behind the shared retrieval contract | `open_web_retrieval` | `open_web_retrieval` | shared infrastructure | retain as bounded extension | Keep this as optional escalation, not as a full browser-automation or anti-bot platform. |
 | Shared LLM execution, cost/latency storage, and durable observability backends | `llm_client` | `llm_client` | consumed shared infrastructure | consume, do not re-own | `open_web_retrieval` can emit compatible tool-call records, but should not grow a competing runtime or storage layer. |

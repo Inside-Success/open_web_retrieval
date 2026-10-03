@@ -138,8 +138,8 @@ The ownership boundary remains:
 - `llm_client`: execute the model/tool loop and retain model/tool observability
 - Grounded Research: own the research goal, query-planning policy, evidence
   selection, and final adjudication/report
-- `Inside-Success/open_web_retrieval`: remain the public source-overlay
-  downstream, pinned to reviewed canonical source snapshots
+- `Inside-Success/open_web_retrieval`: the independent, canonical Inside
+  Success retrieval substrate (no upstream sync since 2026-10-03)
 
 The backward path is:
 
